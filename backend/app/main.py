@@ -17,7 +17,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.config import settings
 from app.database import SessionLocal, engine
 from app.limiter import limiter
-from app.routers import account, admin_catalog, admin_ops, auth, catalog, orders, selling, telegram
+from app.routers import account, admin_catalog, admin_ops, auth, catalog, fans, orders, selling, telegram
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 for _noisy in ("httpx", "httpcore"):  # their INFO lines contain the bot token in Telegram URLs
@@ -75,29 +75,34 @@ async def unhandled(request: Request, exc: Exception):
     if isinstance(exc, HTTPException):
         raise exc
     log.exception("Unhandled error on %s %s", request.method, request.url.path)
+    from app.services import alerts
+    alerts.api_error(request.method, request.url.path, exc)
     return JSONResponse({"detail": "Something went wrong on our side. Please try again."}, status_code=500)
 
 
-for r in (auth, account, catalog, selling, orders, admin_catalog, admin_ops, telegram):
+for r in (auth, account, catalog, selling, orders, admin_catalog, admin_ops, telegram, fans):
     app.include_router(r.router)
 
 
 # ---------------------------------------------------------------- background work
 def _expiry_loop() -> None:
-    """Every minute: release tickets held by unpaid orders whose QR (plus grace) expired,
-    and send the daily Telegram report once a day."""
-    from app.services import orders as svc, reports
+    """Every minute: release tickets held by unpaid orders whose QR (plus grace) expired, send the
+    daily Telegram report and take the daily database backup. Failures alert the admin group."""
+    from app.services import alerts, backup, orders as svc, reports
+    jobs = (("release expired checkouts", lambda db: svc.expire_due(db)),
+            ("daily report", reports.maybe_send_daily),
+            ("daily backup", backup.maybe_run_daily))
     while True:
         time.sleep(60)
-        try:
-            with SessionLocal() as db:
-                n = svc.expire_due(db)
-                if n:
-                    log.info("Released %d expired checkout(s)", n)
-            with SessionLocal() as db:
-                reports.maybe_send_daily(db)
-        except Exception:  # noqa: BLE001
-            log.exception("Background job failed")
+        for name, job in jobs:
+            try:
+                with SessionLocal() as db:
+                    n = job(db)
+                    if name.startswith("release") and n:
+                        log.info("Released %d expired checkout(s)", n)
+            except Exception as e:  # noqa: BLE001
+                log.exception("Background job failed: %s", name)
+                alerts.job_error(name, e)
 
 
 def _initial_admin() -> None:
@@ -124,6 +129,12 @@ def _startup() -> None:
     if settings.ENVIRONMENT == "test":
         return
     _initial_admin()
+    try:
+        from app.services import demo
+        with SessionLocal() as db:
+            demo.seed_once(db)
+    except Exception:  # noqa: BLE001  (demo content must never stop the API starting)
+        log.exception("Demo content could not be created")
     threading.Thread(target=_expiry_loop, name="expiry", daemon=True).start()
     from app.services import telegram as tg, tg_listener
     tg.register_webhook_async()   # no-op unless TELEGRAM_BOT_TOKEN is set and API_PUBLIC_URL is https

@@ -1,9 +1,10 @@
-import { BarChart3, CreditCard, FileClock, Image, LayoutDashboard, ListChecks, LogOut, Menu, Mic2, Moon, Package, Settings, Sun, Users, Wallet, X } from 'lucide-react'
+import { BarChart3, CreditCard, DatabaseBackup, FileClock, Image, LayoutDashboard, ListChecks, LogOut, Menu, Mic2, Moon, Package, Settings, Star, Sun, Users, Wallet, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { PageTransition } from '../../components/Motion'
 import { Avatar, Loading, Logo } from '../../components/ui'
 import { useApp } from '../../context/App'
+import { useAdminLanguage } from './adminLang'
 import { cls } from '../../lib/format'
 import { Overview } from './Overview'
 
@@ -16,8 +17,8 @@ export const GROUPS = [
   ['', [['', 'Overview', LayoutDashboard]]],
   ['Sales', [['orders', 'Orders', Package], ['payments', 'Payments', CreditCard], ['withdrawals', 'Withdrawals', Wallet]]],
   ['Catalogue', [['listings', 'Listings', ListChecks], ['concerts', 'Concerts', Image], ['artists', 'Artists', Mic2]]],
-  ['People & reports', [['users', 'Users', Users], ['reports', 'Reports', BarChart3]]],
-  ['System', [['settings', 'Settings', Settings, true], ['audit', 'Audit log', FileClock, true]]],
+  ['People & reports', [['users', 'Users', Users], ['reviews', 'Reviews', Star], ['reports', 'Reports', BarChart3]]],
+  ['System', [['settings', 'Settings', Settings, true], ['backups', 'Backups', DatabaseBackup, true], ['audit', 'Audit log', FileClock, true]]],
 ]
 
 function NavList({ admin, onPick }) {
@@ -45,7 +46,18 @@ function NavList({ admin, onPick }) {
   )
 }
 
-function Footer({ user, logout, dark, applyTheme }) {
+function LangToggle({ lang, setLang, className = '' }) {
+  return (
+    <div data-no-translate className={cls('inline-flex rounded-lg border border-line bg-raised p-0.5 text-[12px] font-semibold', className)} role="group" aria-label="Language">
+      {[['en', 'EN'], ['km', 'ខ្មែរ']].map(([k, l]) => (
+        <button key={k} onClick={() => setLang(k)} aria-pressed={lang === k}
+          className={cls('rounded-md px-2.5 py-1 transition', lang === k ? 'bg-surface text-ink shadow-card' : 'text-muted hover:text-ink')}>{l}</button>
+      ))}
+    </div>
+  )
+}
+
+function Footer({ user, logout, dark, applyTheme, lang, setLang }) {
   return (
     <div className="border-t border-line p-3">
       <div className="flex items-center gap-3 rounded-xl px-2 py-2">
@@ -54,7 +66,10 @@ function Footer({ user, logout, dark, applyTheme }) {
         <button onClick={() => applyTheme(!dark)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-raised hover:text-ink" aria-label="Theme">{dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button>
         <button onClick={logout} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-raised hover:text-bad" aria-label="Sign out"><LogOut className="h-4 w-4" /></button>
       </div>
-      <Link to="/" className="btn-ghost mt-2 w-full py-2 text-[13px]">View website</Link>
+      <div className="mt-2 flex items-center gap-2">
+        <LangToggle lang={lang} setLang={setLang} />
+        <Link to="/" className="btn-ghost flex-1 py-2 text-[13px]">View website</Link>
+      </div>
     </div>
   )
 }
@@ -63,6 +78,7 @@ export default function AdminApp() {
   const { user, ready, logout, dark, applyTheme } = useApp()
   const [open, setOpen] = useState(false)
   const loc = useLocation()
+  const [lang, setLang] = useAdminLanguage()
   useEffect(() => { setOpen(false); window.scrollTo(0, 0) }, [loc.pathname])
   if (!ready) return <Loading />
   if (!user) return <Navigate to="/login?next=/admin" replace />
@@ -75,13 +91,14 @@ export default function AdminApp() {
       <aside className="sticky top-0 hidden h-screen flex-col border-r border-line bg-surface lg:flex">
         <div className="flex h-16 items-center justify-between px-5"><Link to="/admin"><Logo /></Link><span className="rounded-md bg-accent/10 px-2 py-0.5 text-[10px] font-bold tracking-wider text-accent">ADMIN</span></div>
         <div className="flex-1 overflow-y-auto py-2"><NavList admin={admin} /></div>
-        <Footer user={user} logout={logout} dark={dark} applyTheme={applyTheme} />
+        <Footer user={user} logout={logout} dark={dark} applyTheme={applyTheme} lang={lang} setLang={setLang} />
       </aside>
 
       {/* phone / tablet top bar */}
       <header className="sticky top-0 z-40 flex h-[calc(56px+var(--safe-top))] items-center gap-3 border-b border-line bg-surface/90 px-4 pt-[var(--safe-top)] backdrop-blur-xl lg:hidden">
         <button onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-xl border border-line" aria-label="Menu"><Menu className="h-5 w-5" /></button>
         <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Admin</p><p className="-mt-0.5 truncate font-semibold">{current?.[1] || 'TicketNest'}</p></div>
+        <LangToggle lang={lang} setLang={setLang} />
         <Avatar user={user} size={34} />
       </header>
       {open && (
@@ -90,7 +107,7 @@ export default function AdminApp() {
           <div className="absolute inset-y-0 left-0 flex w-[82%] max-w-[300px] flex-col bg-surface pb-[var(--safe-bottom)] pt-[var(--safe-top)] shadow-lift" style={{ animation: 'drawer .28s cubic-bezier(.2,.7,.2,1)' }} onClick={(e) => e.stopPropagation()}>
             <div className="flex h-14 items-center justify-between px-5"><Logo /><button onClick={() => setOpen(false)} aria-label="Close"><X className="h-5 w-5" /></button></div>
             <div className="flex-1 overflow-y-auto py-2"><NavList admin={admin} onPick={() => setOpen(false)} /></div>
-            <Footer user={user} logout={logout} dark={dark} applyTheme={applyTheme} />
+            <Footer user={user} logout={logout} dark={dark} applyTheme={applyTheme} lang={lang} setLang={setLang} />
           </div>
         </div>
       )}

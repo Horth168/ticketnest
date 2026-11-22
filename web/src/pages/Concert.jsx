@@ -1,12 +1,13 @@
-import { CalendarDays, Clock, Info, MapPin, MessageCircle, Minus, Plus, ShieldCheck, Ticket } from 'lucide-react'
+import { BadgeCheck, Bell, BellRing, CalendarDays, Clock, Eye, Info, MapPin, MessageCircle, Minus, Plus, Share2, ShieldCheck, Ticket } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArtistImage, ConcertCard, isLogo } from '../components/cards'
 import { Reveal } from '../components/Motion'
 import { useT } from '../i18n'
+import SeatMap, { CAT_COLORS } from '../components/SeatMap'
 import { Badge, Empty, Loading, Poster } from '../components/ui'
 import { useApp, useLink } from '../context/App'
-import { api } from '../lib/api'
+import { api, apiUrl } from '../lib/api'
 import { cls, dateLong, pct, time, TICKET_TYPES, usd } from '../lib/format'
 
 export default function Concert() {
@@ -20,8 +21,19 @@ export default function Concert() {
   if (error) return <div className="page pt-10"><Empty icon={Ticket} title={t('Concert not found')}>{t('It may have been removed or the link is wrong.')}</Empty></div>
   if (!c) return <Loading />
   const listings = c.listings.filter((l) => !cat || l.category_id === cat)
+  const colorOf = (id) => CAT_COLORS[Math.max(0, c.categories.findIndex((k) => k.id === id)) % CAT_COLORS.length]
+  const pick = (id) => {
+    setCat(id)
+    if (id && window.innerWidth < 1024) setTimeout(() => document.getElementById('tickets-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150)
+  }
   return (
     <div>
+      {c.preview && (
+        <div className="border-b border-warn/30 bg-warn/10">
+          <p className="page flex items-center gap-2 py-2.5 text-[13px] font-semibold text-warn"><Eye className="h-4 w-4 shrink-0" />
+            {c.is_demo ? t('Demo concert: only staff can see this page and tickets cannot be bought.') : t('Preview: this concert is unpublished, customers cannot see it yet.')}</p>
+        </div>
+      )}
       <div className="relative overflow-hidden border-b border-line bg-surface">
         <div className="page grid gap-8 py-8 md:grid-cols-[minmax(0,420px)_1fr] md:py-12">
           <div className="aspect-[4/3] overflow-hidden rounded-3xl border border-line shadow-lift"><Poster src={c.poster_url} title={c.title} artist={c.artist.name} /></div>
@@ -39,13 +51,38 @@ export default function Concert() {
               {c.sold_out && <Badge tone="bad">{t('SOLD OUT')}</Badge>}
               {c.on_sale && !c.sold_out && <Badge tone="good">{t('{n} tickets available', { n: c.tickets_available })}</Badge>}
             </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <NotifyButton c={c} />
+              <ShareButton c={c} />
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="page mt-10 grid gap-10 lg:grid-cols-[1fr_340px]">
-        <div>
-          <h2 className="text-2xl font-bold">{t('Tickets')}</h2>
+      <div className="page mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0">
+          {c.seat_layout && c.categories.length > 0 && (
+            <section className="card mb-10 overflow-hidden">
+              <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+                <div><h2 className="text-xl font-bold">{t('Seat map')}</h2><p className="text-[13px] text-muted">{t('Tap a colour to see where the seats are and the tickets for it.')}</p></div>
+                {cat && <button className="chip shrink-0" onClick={() => setCat(null)}>{t('Show all')}</button>}
+              </div>
+              <div className="grid gap-4 p-4 sm:p-5 md:grid-cols-[minmax(0,1fr)_220px] md:items-center">
+                <SeatMap layout={c.seat_layout} categories={c.categories} selected={cat} onSelect={pick} className="mx-auto w-full max-w-[520px]" />
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
+                  {c.categories.map((k, i) => (
+                    <button key={k.id} onClick={() => pick(cat === k.id ? null : k.id)}
+                      className={cls('flex items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition', cat === k.id ? 'border-ink bg-raised shadow-card' : 'border-line hover:bg-raised', cat && cat !== k.id && 'opacity-55')}>
+                      <span className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ background: CAT_COLORS[i % CAT_COLORS.length] }} />
+                      <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-semibold">{k.name}</span>
+                        <span className="block text-[12px] text-muted">{k.available ? `${t('from')} ${usd(k.from_price_cents)}` : t('Sold out')}</span></span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+          <h2 id="tickets-list" className="scroll-mt-24 text-2xl font-bold">{t('Tickets')}</h2>
           {c.categories.length > 0 && (
             <div className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4">
               <button onClick={() => setCat(null)} className={cls('chip', !cat && '!border-ink bg-ink !text-bg')}>{t('All')}</button>
@@ -57,7 +94,7 @@ export default function Concert() {
             </div>
           )}
           <div className="mt-5 space-y-3">
-            {listings.length ? listings.map((l, i) => <Reveal key={l.id} delay={i * 60}><ListingRow l={l} /></Reveal>)
+            {listings.length ? listings.map((l, i) => <Reveal key={l.id} delay={i * 60}><ListingRow l={l} color={c.seat_layout ? colorOf(l.category_id) : null} preview={c.preview} /></Reveal>)
               : <Empty icon={Ticket} title={c.on_sale ? t('SOLD OUT') : t('Sales closed')}>
                   {c.on_sale ? t('No tickets are available in this category right now. New listings appear here as soon as they are approved.') : t('This concert is no longer on sale.')}
                 </Empty>}
@@ -91,7 +128,52 @@ function DeliveryInfo({ c }) {
   )
 }
 
-export function ListingRow({ l }) {
+function NotifyButton({ c }) {
+  const { user, toast } = useApp()
+  const { t } = useT()
+  const nav = useNavigate()
+  const link = useLink()
+  const [s, setS] = useState(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { api(`/api/concerts/${c.slug}/alert`).then(setS).catch(() => {}) }, [c.slug, user])
+  if (c.preview) return null
+  const toggle = async () => {
+    if (!user) return nav(link(`/login?next=${encodeURIComponent(`/concerts/${c.slug}`)}`))
+    setBusy(true)
+    try {
+      const r = await api(`/api/concerts/${c.slug}/alert`, { method: s?.subscribed ? 'DELETE' : 'POST' })
+      setS({ ...s, subscribed: r.subscribed })
+      toast(r.subscribed ? (r.telegram ? t("We'll message you on Telegram and email when new tickets go on sale.") : t("We'll email you when new tickets go on sale. Connect Telegram in your profile to get messages there too."))
+        : t('Alerts turned off'))
+    } catch (e) { toast(e.message, 'error') } finally { setBusy(false) }
+  }
+  const on = s?.subscribed
+  return (
+    <button onClick={toggle} disabled={busy} aria-pressed={!!on}
+      className={cls('btn h-11', on ? 'border border-accent/40 bg-accent/10 text-accent' : 'btn-holo')}>
+      {on ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+      {on ? t('Notifying you') : t('Notify me')}
+    </button>
+  )
+}
+
+function ShareButton({ c }) {
+  const { toast } = useApp()
+  const { t } = useT()
+  if (c.preview) return null
+  // the API page carries this concert's poster/price for Telegram & Facebook link cards, then opens the concert
+  const url = new URL(apiUrl(`/s/c/${c.slug}`), window.location.origin).href
+  const share = async () => {
+    try {
+      if (navigator.share) { await navigator.share({ title: c.title, text: `${c.title} · TicketNest`, url }); return }
+      await navigator.clipboard.writeText(url)
+      toast(t('Link copied'))
+    } catch (e) { if (e?.name !== 'AbortError') toast(t('Could not share'), 'error') }
+  }
+  return <button onClick={share} className="btn-ghost h-11"><Share2 className="h-4 w-4" />{t('Share')}</button>
+}
+
+export function ListingRow({ l, color = null, preview = false }) {
   const nav = useNavigate()
   const link = useLink()
   const { settings } = useApp()
@@ -102,10 +184,13 @@ export function ListingRow({ l }) {
   return (
     <div className={cls('card card-hover flex flex-col gap-4 p-4 sm:flex-row sm:items-center', reserved && 'opacity-70')}>
       <div className="flex min-w-0 flex-1 items-start gap-4">
-        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-accent/10 text-center font-display text-[13px] font-bold leading-tight text-accent">{l.category}</div>
+        <div className="relative grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-accent/10 text-center font-display text-[13px] font-bold leading-tight text-accent"
+          style={color ? { background: `${color}22`, color } : undefined}>{l.category.length > 8 ? l.category.split(' ').map((w) => w[0]).join('') : l.category}
+          {color && <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full ring-2 ring-surface" style={{ background: color }} />}</div>
         <div className="min-w-0">
           <p className="font-semibold">{l.category}{l.seat_info && <span className="font-normal text-muted"> · {l.seat_info}</span>}</p>
-          <p className="mt-0.5 text-[13px] text-muted">{t(TICKET_TYPES[l.ticket_type])} · {t(l.seller_label)}</p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted">{t(TICKET_TYPES[l.ticket_type])} · {t(l.seller_label)}
+            {l.seller_sales > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-good/10 px-2 py-0.5 text-[11.5px] font-semibold text-good"><BadgeCheck className="h-3.5 w-3.5" />{t('{n} sold', { n: l.seller_sales })}</span>}</p>
           {l.notes && <p className="mt-1 line-clamp-2 text-[13px] text-muted">{l.notes}</p>}
           <p className="mt-1 text-[12px] text-muted">{t('Seller price {price} + {pct} fee', { price: usd(l.price_cents), pct: pct(settings?.fees?.buyer_markup_bps ?? 1500) })}</p>
         </div>
@@ -124,7 +209,9 @@ export function ListingRow({ l }) {
                 <button className="grid h-10 w-9 place-items-center text-muted disabled:opacity-30" disabled={qty >= max} onClick={() => setQty(qty + 1)} aria-label={t('More')}><Plus className="h-4 w-4" /></button>
               </div>
             )}
-            <button className="btn-accent h-10" onClick={() => nav(link(`/checkout/${l.id}?qty=${qty}`))}>{t('Buy')}</button>
+            {preview
+              ? <span className="rounded-xl border border-line px-3 py-2 text-[13px] font-semibold text-muted">{t('Demo only')}</span>
+              : <button className="btn-accent h-10" onClick={() => nav(link(`/checkout/${l.id}?qty=${qty}`))}>{t('Buy')}</button>}
           </div>
         )}
       </div>

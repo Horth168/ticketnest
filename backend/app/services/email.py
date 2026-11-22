@@ -311,3 +311,20 @@ def send_ticket_sold(order) -> None:
                    layout("Your ticket sold", intro, rows,
                           ("Open my wallet", f"{settings.SITE_URL.rstrip('/')}/account/wallet")),
                    kind="ticket_sold", order_id=order.id)
+
+
+def send_concert_alert(to: str, name: str, listing, price_text: str) -> None:
+    """'Notify me': a new ticket for a concert the fan follows is on sale."""
+    from app.utils import fmt_local
+    c = listing.concert
+    url = f"{settings.SITE_URL.rstrip('/')}/concerts/{c.slug}"
+    rows = _rows([("Concert", c.title), ("Date", fmt_local(c.starts_at, "%a %d %b %Y, %H:%M")),
+                  ("Venue", f"{c.venue}, {c.city}"), ("Category", listing.category.name),
+                  ("Tickets", str(listing.available)), ("Price (per ticket)", price_text)])
+    intro = (f"Hi {escape(name)}, new tickets for <b>{escape(c.title)}</b> just went on sale on TicketNest. "
+             "Tickets sell fast, so check them out soon.")
+    text = f"New tickets for {c.title}: {listing.category.name}, {price_text} each.\n{url}"
+    send_later(to, f"🎫 Tickets on sale: {c.title}", text,
+               layout("New tickets on sale", intro, rows, ("See tickets", url),
+                      footer="You get this because you tapped “Notify me” for this concert. Turn it off on the concert page."),
+               kind="concert_alert")

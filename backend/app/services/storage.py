@@ -121,3 +121,41 @@ def read_private(key: str) -> bytes:
     if not p.is_file():
         raise HTTPException(404, "File not found")
     return p.read_bytes()
+
+
+# ---------------------------------------------------------------- fixed keys (database backups)
+def put_private_at(key: str, data: bytes, content_type: str) -> None:
+    if settings.STORAGE_PROVIDER == "r2":
+        _r2().put_object(Bucket=settings.R2_PRIVATE_BUCKET, Key=key, Body=data, ContentType=content_type)
+        return
+    p = _local_path("private", key)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(data)
+
+
+def list_private(prefix: str) -> list[dict]:
+    """[{key, size, modified}] newest first."""
+    out = []
+    if settings.STORAGE_PROVIDER == "r2":
+        pages = _r2().get_paginator("list_objects_v2").paginate(Bucket=settings.R2_PRIVATE_BUCKET, Prefix=prefix)
+        for page in pages:
+            for o in page.get("Contents", []):
+                out.append({"key": o["Key"], "size": o["Size"], "modified": o["LastModified"]})
+    else:
+        from datetime import datetime, timezone
+        base = _local_path("private", prefix.rstrip("/") + "/x").parent
+        if base.is_dir():
+            for f in base.iterdir():
+                if f.is_file():
+                    out.append({"key": f"{prefix.rstrip('/')}/{f.name}", "size": f.stat().st_size,
+                                "modified": datetime.fromtimestamp(f.stat().st_mtime, timezone.utc)})
+    return sorted(out, key=lambda o: o["modified"], reverse=True)
+
+
+def delete_private(key: str) -> None:
+    if settings.STORAGE_PROVIDER == "r2":
+        _r2().delete_object(Bucket=settings.R2_PRIVATE_BUCKET, Key=key)
+        return
+    p = _local_path("private", key)
+    if p.is_file():
+        p.unlink()

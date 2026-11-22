@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import { Loading } from './components/ui'
 import { AppProvider } from './context/App'
 import { I18nProvider } from './i18n'
+import { installErrorReporting } from './lib/errors'
 import Account, { MyInvoices, MyListings, MyWallet, Profile } from './pages/account/Account'
 import { Forgot, Login, Register, Reset } from './pages/Auth'
 import Checkout, { OrderPage, RequireAuth } from './pages/Checkout'
@@ -23,6 +24,8 @@ const MiniApp = lazy(() => import('./tg/MiniApp'))
 if (window.Telegram?.WebApp?.initData && !location.pathname.startsWith('/tg')) {
   history.replaceState(null, '', '/tg' + (location.pathname === '/' ? '' : location.pathname))
 }
+
+installErrorReporting()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

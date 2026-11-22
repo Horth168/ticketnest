@@ -7,6 +7,7 @@ import { api, openFile } from '../../lib/api'
 import { cls, dateTime, pct, usd2 } from '../../lib/format'
 import { H, Tabs } from './AdminApp'
 import { PayoutQr } from './Listings'
+import SeatMap, { CAT_COLORS, LAYOUTS } from '../../components/SeatMap'
 
 export default function Ops() {
   return (
@@ -19,6 +20,8 @@ export default function Ops() {
       <Route path="reports" element={<Reports />} />
       <Route path="settings" element={<SettingsPage />} />
       <Route path="audit" element={<Audit />} />
+      <Route path="reviews" element={<ReviewsPage />} />
+      <Route path="backups" element={<BackupsPage />} />
       <Route path="*" element={<Empty title="Not found" />} />
     </Routes>
   )
@@ -151,7 +154,7 @@ function SettleModal({ s, onClose, onDone }) {
 }
 
 // ------------------------------------------------------------------ concerts
-const EMPTY_CONCERT = { artist_id: '', title: '', venue: '', city: '', country: '', starts_at: '', doors_open: '', description: '', poster_url: '', delivery_info: '', status: 'scheduled', is_featured: false, is_published: true, categories: [{ name: 'VIP' }, { name: 'CAT 1' }] }
+const EMPTY_CONCERT = { artist_id: '', title: '', venue: '', city: '', country: '', starts_at: '', doors_open: '', description: '', poster_url: '', delivery_info: '', status: 'scheduled', is_featured: false, is_published: true, seat_layout: '', categories: [{ name: 'VIP' }, { name: 'CAT 1' }] }
 
 async function uploadImage(file, folder) {
   const fd = new FormData(); fd.append('file', file)
@@ -174,7 +177,7 @@ function Concerts() {
             <button key={c.id} onClick={() => setEdit({ ...c, starts_at: c.starts_at.slice(0, 16) })} className="card overflow-hidden text-left transition hover:border-accent">
               <div className="aspect-[16/9]"><Poster src={c.poster_url} title={c.title} artist={c.artist.name} /></div>
               <div className="p-4"><p className="eyebrow">{c.artist.name}</p><p className="font-semibold">{c.title}</p><p className="text-[13px] text-muted">{c.city} · {dateTime(c.starts_at)}</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">{!c.is_published && <Badge>Unpublished</Badge>}{c.is_featured && <Badge tone="accent">Featured</Badge>}{c.status !== 'scheduled' && <Badge tone="warn">{c.status}</Badge>}
+                <div className="mt-2 flex flex-wrap gap-1.5">{c.is_demo && <Badge tone="warn">Demo</Badge>}{!c.is_published && <Badge>Unpublished</Badge>}{c.seat_layout && <Badge tone="accent">Seat map</Badge>}{c.is_featured && <Badge tone="accent">Featured</Badge>}{c.status !== 'scheduled' && <Badge tone="warn">{c.status}</Badge>}
                   {Object.entries(c.listing_counts).map(([k, v]) => <Badge key={k}>{v} {k}</Badge>)}</div></div>
             </button>
           ))}
@@ -185,8 +188,11 @@ function Concerts() {
   )
 }
 
+const zoneList = (x) => (x.map_zones || '').split(',').filter(Boolean)
+
 function ConcertForm({ c, artists, onClose, onSaved }) {
   const [f, setF] = useState(c)
+  const [mapCat, setMapCat] = useState(0)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   useEffect(() => setF(c), [c])
@@ -196,7 +202,7 @@ function ConcertForm({ c, artists, onClose, onSaved }) {
   const save = async () => {
     setBusy(true); setError(null)
     const body = { ...f, artist_id: Number(f.artist_id), starts_at: new Date(f.starts_at).toISOString(),
-      categories: f.categories.filter((x) => x.name?.trim()).map((x, i) => ({ id: x.id, name: x.name.trim(), description: x.description || '', face_value: x.face_value_cents != null ? x.face_value_cents / 100 : x.face_value || null, sort_order: i, is_active: x.is_active ?? true })) }
+      categories: f.categories.filter((x) => x.name?.trim()).map((x, i) => ({ id: x.id, name: x.name.trim(), description: x.description || '', face_value: x.face_value_cents != null ? x.face_value_cents / 100 : x.face_value || null, sort_order: i, is_active: x.is_active ?? true, map_zones: x.map_zones || '' })) }
     try { await api(c.id ? `/api/admin/concerts/${c.id}` : '/api/admin/concerts', { method: c.id ? 'PUT' : 'POST', body }); onSaved() } catch (e) { setError(e) } finally { setBusy(false) }
   }
   return (
@@ -210,6 +216,7 @@ function ConcertForm({ c, artists, onClose, onSaved }) {
         <Field label="Country"><input className="input" value={f.country} onChange={set('country')} /></Field>
         <Field label="Doors open"><input className="input" value={f.doors_open} onChange={set('doors_open')} placeholder="e.g. 17:30" /></Field>
         <Field label="Status"><select className="input" value={f.status} onChange={set('status')}>{['scheduled', 'postponed', 'cancelled', 'completed'].map((s) => <option key={s}>{s}</option>)}</select></Field>
+        <Field label="Seat map"><select className="input" value={f.seat_layout || ''} onChange={set('seat_layout')}><option value="">No seat map</option>{Object.entries(LAYOUTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
       </div>
       <Field label="Poster" className="mt-3">
         <div className="flex items-center gap-3">
@@ -224,6 +231,12 @@ function ConcertForm({ c, artists, onClose, onSaved }) {
       <div className="space-y-2">
         {f.categories.map((x, i) => (
           <div key={i} className="flex gap-2">
+            {f.seat_layout && (
+              <button type="button" title="Pick this category's zones on the map" onClick={() => setMapCat(i)}
+                className={cls('grid h-[42px] w-11 shrink-0 place-items-center rounded-xl border transition', mapCat === i ? 'border-ink bg-raised' : 'border-line')}>
+                <span className="h-4 w-4 rounded-full" style={{ background: CAT_COLORS[i % CAT_COLORS.length] }} />
+              </button>
+            )}
             <input className="input" placeholder="Name (VIP, CAT 1, Standing…)" value={x.name} onChange={(e) => setCat(i, 'name', e.target.value)} />
             <input className="input w-32" placeholder="Face value $" value={x.face_value ?? (x.face_value_cents != null ? x.face_value_cents / 100 : '')} onChange={(e) => setF({ ...f, categories: f.categories.map((y, j) => (j === i ? { ...y, face_value: e.target.value, face_value_cents: null } : y)) })} />
             <button className="btn-ghost px-3" aria-label="Remove category" onClick={() => setF({ ...f, categories: f.categories.filter((_, j) => j !== i) })}><Trash2 className="h-4 w-4" /></button>
@@ -231,8 +244,25 @@ function ConcertForm({ c, artists, onClose, onSaved }) {
         ))}
         <button className="btn-ghost py-2" onClick={() => setF({ ...f, categories: [...f.categories, { name: '' }] })}><Plus className="h-4 w-4" />Category</button>
       </div>
+      {f.seat_layout && f.categories.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-line p-3">
+          <p className="text-[13px] font-semibold">Zones for <span style={{ color: CAT_COLORS[mapCat % CAT_COLORS.length] }}>{f.categories[mapCat]?.name || `category ${mapCat + 1}`}</span>
+            <span className="font-normal text-muted"> · pick a category with its colour dot, then tap zones on the map ({zoneList(f.categories[mapCat] || {}).length} chosen)</span></p>
+          <SeatMap layout={f.seat_layout} editColor
+            categories={f.categories.map((x, i) => ({ id: i + 1, name: x.name || `Category ${i + 1}`, zones: zoneList(x), available: 1 }))}
+            selected={null}
+            onZone={(z) => setF({ ...f, categories: f.categories.map((x, i) => {
+              const zs = zoneList(x).filter((y) => y !== z)
+              if (i === mapCat && !zoneList(x).includes(z)) zs.push(z)
+              return { ...x, map_zones: zs.join(',') }
+            }) })}
+            className="mx-auto max-w-[420px]" />
+        </div>
+      )}
       <div className="mt-4 flex flex-wrap gap-5 text-sm">
-        <label className="flex items-center gap-2"><input type="checkbox" checked={f.is_published} onChange={set('is_published')} />Published</label>
+        {f.is_demo
+          ? <span className="rounded-lg bg-warn/10 px-2.5 py-1 text-[13px] font-semibold text-warn">Demo concert: staff-only, can't be published or bought</span>
+          : <label className="flex items-center gap-2"><input type="checkbox" checked={f.is_published} onChange={set('is_published')} />Published</label>}
         <label className="flex items-center gap-2"><input type="checkbox" checked={f.is_featured} onChange={set('is_featured')} />Featured on homepage</label>
       </div>
       <ErrorNote error={error} />
@@ -498,6 +528,88 @@ function Audit() {
         <div key={a.id} className="flex flex-wrap gap-x-3 p-3 text-sm"><b>{a.action}</b><span className="text-muted">{a.entity} #{a.entity_id}</span><span>{a.actor}</span><span className="ml-auto text-[12px] text-muted">{dateTime(a.at)}</span>
           {a.data && <code className="w-full truncate text-[11px] text-muted">{JSON.stringify(a.data)}</code>}</div>
       ))}</div>}
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ reviews
+const Stars = ({ n }) => <span className="tracking-tight text-[#F5B301]">{'★'.repeat(n)}<span className="text-line">{'★'.repeat(5 - n)}</span></span>
+
+function ReviewsPage() {
+  const { toast } = useApp()
+  const [tab, setTab] = useState('pending')
+  const [data, setData] = useState(null)
+  const load = useCallback(() => api(`/api/admin/reviews?status=${tab}`).then(setData), [tab])
+  useEffect(() => { setData(null); load() }, [load])
+  const act = async (r, action) => {
+    try {
+      if (action === 'delete') { if (!confirm('Delete this review?')) return; await api(`/api/admin/reviews/${r.id}`, { method: 'DELETE' }) }
+      else await api(`/api/admin/reviews/${r.id}/${action}`, { method: 'POST' })
+      toast(action === 'approve' ? 'Review published' : action === 'reject' ? 'Review rejected' : 'Review deleted'); load()
+    } catch (e) { toast(e.message, 'error') }
+  }
+  const c = data?.counts || {}
+  return (
+    <div>
+      <H title="Reviews" sub="Customers write reviews from the homepage. Only approved reviews appear in the slider." />
+      <Tabs value={tab} onChange={setTab} options={[['pending', `Pending ${c.pending || 0}`], ['approved', `Approved ${c.approved || 0}`], ['rejected', `Rejected ${c.rejected || 0}`], ['sample', `Samples ${c.sample || 0}`]]} />
+      {tab === 'sample' && <p className="mb-4 rounded-xl bg-warn/10 px-4 py-3 text-[13px] text-warn">Samples are preview text written by TicketNest so you can see the slider before real reviews arrive. Only staff see them (on the homepage, while signed in), and they cannot be published as customer reviews. Delete them once real reviews come in.</p>}
+      {!data ? <Loading /> : !data.reviews.length ? <Empty title="Nothing here">{tab === 'pending' ? 'New reviews waiting for approval appear here.' : 'No reviews in this list.'}</Empty> : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {data.reviews.map((r) => (
+            <div key={r.id} className="card flex flex-col p-4">
+              <div className="flex items-center gap-3">
+                <Avatar user={{ full_name: r.name, avatar_url: r.avatar_url }} size={38} />
+                <div className="min-w-0 flex-1"><p className="truncate font-semibold">{r.name}</p><p className="truncate text-[12px] text-muted">{r.email || (r.is_sample ? 'Sample content' : 'Account deleted')} · {dateTime(r.created_at)}</p></div>
+                <Stars n={r.rating} />
+              </div>
+              <p className="mt-3 flex-1 text-sm leading-relaxed">“{r.text}”</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {r.role && <Badge tone="good">Verified {r.role}</Badge>}
+                {r.is_sample ? <Badge tone="warn">Sample</Badge> : <Badge tone={r.status === 'approved' ? 'good' : r.status === 'rejected' ? 'bad' : 'warn'}>{r.status}</Badge>}
+                <span className="flex-1" />
+                {!r.is_sample && r.status !== 'approved' && <button className="btn-primary py-1.5" onClick={() => act(r, 'approve')}>Approve</button>}
+                {!r.is_sample && r.status !== 'rejected' && <button className="btn-ghost py-1.5" onClick={() => act(r, 'reject')}>{r.status === 'approved' ? 'Unpublish' : 'Reject'}</button>}
+                <button className="btn-ghost px-2.5 py-1.5 text-bad" aria-label="Delete" onClick={() => act(r, 'delete')}><Trash2 className="h-4 w-4" /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ backups
+const mb = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
+
+function BackupsPage() {
+  const { toast } = useApp()
+  const [data, setData] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const load = useCallback(() => api('/api/admin/backups').then(setData).catch((e) => toast(e.message, 'error')), [toast])
+  useEffect(() => { load() }, [load])
+  const now = async () => {
+    setBusy(true)
+    try { const r = await api('/api/admin/backups', { method: 'POST' }); toast(`Backup saved (${mb(r.size)})`); load() } catch (e) { toast(e.message, 'error') } finally { setBusy(false) }
+  }
+  return (
+    <div>
+      <H title="Backups" sub={data ? `Every table is saved automatically each day after ${String(data.hour).padStart(2, '0')}:00 (Phnom Penh time) to your private Cloudflare storage. The last ${data.keep_days} are kept.` : ''}>
+        <button className="btn-primary" disabled={busy} onClick={now}>{busy ? 'Backing up…' : 'Back up now'}</button>
+      </H>
+      {data?.last && <p className="mb-4 rounded-xl bg-good/10 px-4 py-3 text-[13px] text-good">Last backup: {dateTime(data.last.at)} · {data.last.rows} rows · {mb(data.last.size)}</p>}
+      {!data ? <Loading /> : !data.files.length ? <Empty title="No backups yet">The first one runs within a few minutes of the API starting, or press “Back up now”.</Empty> : (
+        <div className="card divide-y divide-line">
+          {data.files.map((f) => (
+            <div key={f.name} className="flex items-center gap-3 p-3.5 text-sm">
+              <span className="min-w-0 flex-1"><span className="block truncate font-medium">{f.name}</span><span className="text-[12px] text-muted">{dateTime(f.created_at)} · {mb(f.size)}</span></span>
+              <button className="btn-ghost py-1.5" onClick={() => openFile(`/api/admin/backups/${f.name}`, f.name, true)}><Download className="h-4 w-4" />Download</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="mt-4 text-[12px] leading-relaxed text-muted">Backups contain customer data: keep downloaded files private. To restore one into a new empty database, run <code className="rounded bg-raised px-1">alembic upgrade head</code> and then <code className="rounded bg-raised px-1">python scripts/restore_backup.py FILE</code> in the backend folder.</p>
     </div>
   )
 }

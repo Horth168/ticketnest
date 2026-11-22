@@ -165,6 +165,7 @@ class CategoryIn(Clean):
     face_value: str | float | None = None
     sort_order: int = 0
     is_active: bool = True
+    map_zones: str = Field("", max_length=400)
 
 
 class ConcertIn(Clean):
@@ -181,6 +182,7 @@ class ConcertIn(Clean):
     status: Literal["scheduled", "postponed", "cancelled", "completed"] = "scheduled"
     is_featured: bool = False
     is_published: bool = True
+    seat_layout: Literal["", "stadium", "arena"] = ""
     categories: list[CategoryIn] = []
 
 

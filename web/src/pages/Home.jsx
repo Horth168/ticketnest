@@ -6,6 +6,7 @@ import { ArtistTile, ConcertCard, isLogo, SkeletonCards } from '../components/ca
 import { SearchBox, TelegramIcon, useMiniAppUrl } from '../components/Layout'
 import LiveStage from '../components/LiveStage'
 import { Reveal } from '../components/Motion'
+import ReviewsSection from '../components/Reviews'
 import { Empty, ErrorNote } from '../components/ui'
 import { useApp } from '../context/App'
 import { useT } from '../i18n'
@@ -130,6 +131,7 @@ export default function Home() {
 
         <TrustBlock />
       </div>
+      <ReviewsSection />
     </>
   )
 }

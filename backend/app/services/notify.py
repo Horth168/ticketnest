@@ -170,3 +170,41 @@ def customer_order_update(db: Session, order: Order, kind: str) -> None:
     }
     if kind in texts:
         to_user(db, order.buyer, texts[kind], kind=f"order_{kind}", buttons=_support_button(db) if kind == "paid" else None)
+
+
+# ---------------------------------------------------------------- "notify me"
+ALERT_GAP_HOURS = 6   # at most one alert per fan per concert in this window
+
+
+def concert_alerts(db: Session, listing: TicketListing) -> int:
+    """A listing just went on sale: tell everyone who tapped 'Notify me' for the concert
+    (Telegram DM if they linked the bot, plus email). Returns how many fans were notified."""
+    from datetime import timedelta
+
+    from app.models import ConcertAlert
+    from app.services import email as mail
+    from app.services.pricing import buyer_unit_price
+    from app.utils import as_aware
+    c = listing.concert
+    if not c.is_published or c.is_demo or listing.available <= 0:
+        return 0
+    now = utcnow()
+    price = fmt_usd2(buyer_unit_price(db, listing.price_cents))
+    url = f"{settings.SITE_URL.rstrip('/')}/concerts/{c.slug}"
+    n = 0
+    for a in db.query(ConcertAlert).filter_by(concert_id=c.id).all():
+        if a.last_notified_at and as_aware(a.last_notified_at) > now - timedelta(hours=ALERT_GAP_HOURS):
+            continue
+        if listing.seller_id and a.user_id == listing.seller_id:
+            continue
+        u = a.user
+        if not u or not u.is_active:
+            continue
+        btn = [[{"text": "🎫 See tickets", "url": url}]] if url.startswith("https://") else None
+        to_user(db, u, f"🔔 <b>Tickets on sale</b>\n{e(c.title)}\n{e(listing.category.name)} · {price} each · "
+                       f"{listing.available} left", kind="concert_alert", buttons=btn)
+        if u.email:
+            mail.send_concert_alert(u.email, u.full_name, listing, price)
+        a.last_notified_at = now
+        n += 1
+    return n

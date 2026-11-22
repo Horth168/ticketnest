@@ -89,10 +89,11 @@ def concert_admin(db: Session, c: Concert) -> dict:
                   .filter(TicketListing.concert_id == c.id).group_by(TicketListing.status).all())
     return {**concert_card(c), "artist_id": c.artist_id, "description": c.description, "doors_open": c.doors_open,
             "delivery_info": c.delivery_info, "created_at": iso(c.created_at),
+            "seat_layout": c.seat_layout, "is_demo": c.is_demo,
             "listing_counts": {k.value if hasattr(k, "value") else k: v for k, v in listed.items()},
             "categories": [{"id": x.id, "name": x.name, "description": x.description,
                             "face_value_cents": x.face_value_cents, "sort_order": x.sort_order,
-                            "is_active": x.is_active} for x in c.categories]}
+                            "is_active": x.is_active, "map_zones": x.map_zones} for x in c.categories]}
 
 
 @router.get("/concerts")
@@ -122,10 +123,11 @@ def _apply_categories(db: Session, c: Concert, cats) -> None:
         face = to_cents(ci.face_value) if ci.face_value not in (None, "") else None
         row = by_id.pop(ci.id, None) if ci.id else None
         if row is None:
-            row = TicketCategory(concert=c)
-            c.categories.append(row)
+            row = TicketCategory()
+            c.categories.append(row)       # added once (concert= in the constructor added it twice)
         row.name, row.description, row.face_value_cents = ci.name, ci.description, face
         row.sort_order, row.is_active = ci.sort_order or i, ci.is_active
+        row.map_zones = ",".join(z.strip() for z in (ci.map_zones or "").split(",") if z.strip())[:400]
     for leftover in by_id.values():   # removed from the form
         if db.query(TicketListing.id).filter_by(category_id=leftover.id).first():
             leftover.is_active = False   # listings use it: hide, don't delete
@@ -158,6 +160,8 @@ def update_concert(concert_id: int, body: ConcertIn, db: Session = Depends(get_d
         raise HTTPException(400, "Choose an artist")
     for k, v in body.model_dump(exclude={"categories"}).items():
         setattr(c, k, ConcertStatus(v) if k == "status" else v)
+    if c.is_demo:
+        c.is_published = False   # demo concerts stay staff-only
     _apply_categories(db, c, body.categories)
     audit.log(db, "concert.update", "concert", c.id, actor=user)
     db.commit()

@@ -8,7 +8,9 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import (PUBLIC_LISTING, Artist, Concert, ConcertStatus, TicketCategory, TicketListing)
+from app.models import (PUBLIC_LISTING, Artist, Concert, ConcertStatus, Order, OrderItem, OrderStatus, Role,
+                        TicketCategory, TicketListing, User)
+from app.security import get_optional_user
 from app.serializers import artist_out, concert_card, listing_public
 from app.services.pricing import buyer_unit_price, quote_for
 from app.services.settings_store import get_setting, public_settings
@@ -138,11 +140,24 @@ def concert_filters(db: Session = Depends(get_db)):
             "categories": cats, "artists": artists}
 
 
+def seller_sales(db: Session, seller_ids) -> dict[int, int]:
+    """Tickets each seller has successfully delivered (shown as a trust badge on their listings)."""
+    ids = [i for i in set(seller_ids) if i]
+    if not ids:
+        return {}
+    rows = (db.query(TicketListing.seller_id, func.coalesce(func.sum(OrderItem.quantity), 0))
+            .join(OrderItem, OrderItem.listing_id == TicketListing.id).join(Order, Order.id == OrderItem.order_id)
+            .filter(TicketListing.seller_id.in_(ids), Order.status.in_([OrderStatus.delivered, OrderStatus.completed]))
+            .group_by(TicketListing.seller_id).all())
+    return {sid: int(n) for sid, n in rows}
+
+
 @router.get("/concerts/{slug}")
-def concert_detail(slug: str, db: Session = Depends(get_db)):
+def concert_detail(slug: str, db: Session = Depends(get_db), user: User | None = Depends(get_optional_user)):
     c = (db.query(Concert).options(joinedload(Concert.artist), joinedload(Concert.categories))
-         .filter(Concert.slug == slug, Concert.is_published.is_(True)).first())
-    if not c:
+         .filter(Concert.slug == slug).first())
+    staff = bool(user and user.role in (Role.staff, Role.admin))
+    if not c or not (c.is_published or staff):      # staff may preview unpublished and demo concerts
         raise HTTPException(404, "Concert not found")
     listings = (db.query(L).options(joinedload(L.category))
                 .filter(L.concert_id == c.id, L.status.in_(PUBLIC_LISTING)).order_by(L.price_cents).all())
@@ -154,16 +169,20 @@ def concert_detail(slug: str, db: Session = Depends(get_db)):
             s["from"] = l.price_cents
     on_sale = c.status in (ConcertStatus.scheduled, ConcertStatus.postponed) and as_aware(c.starts_at) >= utcnow()
     cats = [{"id": cat.id, "name": cat.name, "description": cat.description, "face_value_cents": cat.face_value_cents,
+             "zones": [z for z in cat.map_zones.split(",") if z],
              "available": per_cat.get(cat.id, {}).get("available", 0) if on_sale else 0,
              "from_price_cents": buyer_unit_price(db, per_cat[cat.id]["from"]) if per_cat.get(cat.id, {}).get("from") else None}
             for cat in c.categories if cat.is_active]
     total = sum(x["available"] for x in cats)
     st = stats_for(db, [c.id])
+    sales = seller_sales(db, [l.seller_id for l in listings])
     return {**concert_card(c, st.get(c.id)), "description": c.description, "doors_open": c.doors_open,
             "delivery_info": c.delivery_info,
             "artist": artist_out(c.artist), "categories": cats, "on_sale": on_sale,
-            "sold_out": on_sale and total == 0,
-            "listings": [listing_public(db, l) for l in listings if l.available > 0 or l.status.value == "reserved"]
+            "sold_out": on_sale and total == 0, "seat_layout": c.seat_layout, "is_demo": c.is_demo,
+            "preview": not c.is_published or c.is_demo,
+            "listings": [{**listing_public(db, l), "seller_sales": sales.get(l.seller_id, 0)}
+                         for l in listings if l.available > 0 or l.status.value == "reserved"]
                         if on_sale else []}
 
 

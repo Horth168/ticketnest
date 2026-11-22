@@ -24,6 +24,8 @@ def approve(db: Session, listing: TicketListing, actor: User | None, label: str 
     db.flush()
     inventory.refresh_status(db, listing)   # -> sold if every ticket was already sold before an edit
     notify.listing_reviewed(db, listing, True, actor.full_name if actor else label)
+    if listing.status == S.available:
+        notify.concert_alerts(db, listing)
 
 
 def reject(db: Session, listing: TicketListing, reason: str, actor: User | None, label: str = "") -> None:

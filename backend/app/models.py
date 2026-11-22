@@ -140,6 +140,10 @@ class Concert(TS, Base):
     status: Mapped[ConcertStatus] = mapped_column(_enum(ConcertStatus), default=ConcertStatus.scheduled, nullable=False)
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_published: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # seat map drawn on the concert page: "" (none), "stadium" or "arena"; zones are set per category
+    seat_layout: Mapped[str] = mapped_column(String(20), default="", server_default="", nullable=False)
+    # demo content: only staff can open it (always unpublished) and it can never be bought
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
 
     artist: Mapped[Artist] = relationship(back_populates="concerts")
     categories: Mapped[list[TicketCategory]] = relationship(back_populates="concert", cascade="all, delete-orphan",
@@ -156,6 +160,7 @@ class TicketCategory(TS, Base):
     face_value_cents: Mapped[int | None] = mapped_column(Integer)          # official price, if known
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    map_zones: Mapped[str] = mapped_column(String(400), default="", server_default="", nullable=False)  # "FA-L,FA-R"
     concert: Mapped[Concert] = relationship(back_populates="categories")
 
 
@@ -553,3 +558,41 @@ class EmailLog(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False)  # sent | failed | skipped
     order_id: Mapped[int | None] = mapped_column(ForeignKey("orders.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ===================================================================== fans: alerts & reviews
+class ConcertAlert(Base):
+    """'Notify me': the user hears (Telegram and email) when a new listing for this concert goes on sale."""
+    __tablename__ = "concert_alerts"
+    __table_args__ = (UniqueConstraint("user_id", "concert_id", name="uq_alert_user_concert"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    concert_id: Mapped[int] = mapped_column(ForeignKey("concerts.id", ondelete="CASCADE"), index=True, nullable=False)
+    last_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    user: Mapped[User] = relationship()
+    concert: Mapped[Concert] = relationship()
+
+
+class ReviewStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
+class Review(TS, Base):
+    """Customer reviews of TicketNest. Shown publicly only after an admin approves them.
+    is_sample rows are preview content written by TicketNest: staff-only, never approvable."""
+    __tablename__ = "reviews"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(String(600), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), default="", nullable=False)   # buyer | seller | ""
+    status: Mapped[ReviewStatus] = mapped_column(_enum(ReviewStatus), default=ReviewStatus.pending, index=True,
+                                                 nullable=False)
+    is_sample: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    reviewed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    user: Mapped[User | None] = relationship(foreign_keys=[user_id])
