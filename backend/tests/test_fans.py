@@ -152,3 +152,19 @@ def test_demo_becomes_unpublished_draft_without_fake_tickets(client, setup):
     body.update(is_published=True, categories=[{"id": x["id"], "name": x["name"], "map_zones": x["map_zones"]} for x in draft["categories"]])
     assert client.put(f"/api/admin/concerts/{draft['id']}", headers=setup["admin"], json=body).json()["is_published"]
     assert client.get(f"/api/concerts/{demo.DRAFT_SLUG}").status_code == 200
+
+
+def test_khqr_card_image_scans_and_shows_merchant(client, setup):
+    import pytest
+    cv2 = pytest.importorskip("cv2")   # QR decoder, dev machines only
+    import numpy as np
+    l = create_listing(client, setup)
+    client.post(f"/api/admin/listings/{l['id']}/approve", headers=setup["admin"])
+    o = checkout(client, setup["buyer"], l["id"]).json()
+    k = o["khqr"]
+    assert k["merchant_name"] == "TICKETNEST"
+    r = client.get(k["image_url"])
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+    img = cv2.imdecode(np.frombuffer(r.content, np.uint8), cv2.IMREAD_COLOR)
+    assert img.shape[0] > img.shape[1]                     # tall card, not a bare square QR
+    assert cv2.QRCodeDetector().detectAndDecode(img)[0] == k["payload"]

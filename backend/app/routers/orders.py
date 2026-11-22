@@ -2,7 +2,6 @@
 
 import io
 
-import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -94,10 +93,9 @@ def qr_png(number: str, t: str = "", db: Session = Depends(get_db)):
     pay = svc.active_payment(order) if order and order.status == OrderStatus.awaiting_payment else None
     if not pay:
         raise HTTPException(404, "This QR is no longer valid")
-    img = qrcode.make(pay.khqr_payload, box_size=10, border=3)
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return Response(buf.getvalue(), media_type="image/png",
+    from app.services import khqr_card
+    png = khqr_card.render(pay.khqr_payload, pay.amount, pay.currency)
+    return Response(png, media_type="image/png",
                     headers={"Cache-Control": "private, no-store",
                              "Content-Disposition": f'inline; filename="TicketNest-{number}-KHQR.png"'})
 

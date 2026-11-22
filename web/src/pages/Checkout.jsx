@@ -212,8 +212,8 @@ function PayPanel({ o, onChange, toast }) {
         <span className="font-semibold">{t('Scan to pay with KHQR')}</span>
         <span className={`flex items-center gap-1.5 font-semibold ${expired ? 'text-bad' : 'text-warn'}`}><Clock className="h-4 w-4" />{expired ? t('QR expired') : <Countdown seconds={o.seconds_left} onDone={() => setExpired(true)} />}</span>
       </div>
-      <div className="grid gap-6 p-5 sm:grid-cols-[280px_1fr] sm:p-6">
-        <KhqrCard value={k.payload} amount={k.amount} currency={k.currency} name="TicketNest" dim={expired} />
+      <div className="grid gap-6 p-5 sm:grid-cols-[300px_1fr] sm:p-6">
+        <KhqrCard value={k.payload} amount={k.amount} currency={k.currency} name={k.merchant_name || "TicketNest"} dim={expired} />
         <div className="space-y-4 text-sm">
           <ol className="space-y-2.5 text-muted">
             <li><b className="text-ink">1.</b> {t('Open ABA, ACLEDA, Wing or any Bakong banking app and choose Scan QR.')}</li>

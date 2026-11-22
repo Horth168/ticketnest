@@ -107,7 +107,9 @@ def order_out(order: Order, *, admin: bool = False, with_qr: bool = False) -> di
                     "at": iso(ev.created_at)} for ev in order.events],
     }
     if with_qr and pay and order.status.value == "awaiting_payment":
+        from app.services.khqr_card import merchant_name
         d["khqr"] = {"payload": pay.khqr_payload, "amount": pay.amount, "currency": pay.currency,
+                     "merchant_name": merchant_name(pay.khqr_payload),
                      "expires_at": iso(pay.expires_at),
                      "image_url": f"/api/orders/{order.order_number}/qr.png?t={order_svc.access_token(order.order_number)}"}
     if admin:
