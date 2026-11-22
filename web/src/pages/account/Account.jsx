@@ -2,6 +2,7 @@ import { Camera, Check, CreditCard, FileText, Globe, Info, KeyRound, LogOut, Pen
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { GoogleButton, TelegramButton } from '../../components/SocialSignIn'
+import ProfileCard, { useProfileStats } from '../../components/ProfileCard'
 import { Avatar, Empty, ErrorNote, Field, ListingBadge, Loading, Modal, OrderBadge, PasswordInput, Spinner, Stat } from '../../components/ui'
 import { useApp, useLink } from '../../context/App'
 import { LANGS, useT } from '../../i18n'
@@ -15,26 +16,21 @@ export const PAYOUT_NOTE = 'You are paid when a buyer purchases your ticket and 
 
 export default function Account() {
   const { user, logout } = useApp()
+  const stats = useProfileStats()
   const { t } = useT()
   const link = useLink()
   const nav = useNavigate()
   return (
-    <div className="page pt-8">
-      <div className="rise flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Avatar user={user} size={56} className="ring-4 ring-accent/15" />
-          <div><p className="eyebrow">{t('My account')}</p><h1 className="mt-0.5 text-2xl font-bold sm:text-3xl">{t('Hi, {name}', { name: user.full_name.split(' ')[0] })}</h1></div>
-        </div>
-        <div className="flex gap-2">
-          {user.role !== 'customer' && !inTelegram() && <Link to="/admin" className="btn-ghost"><Shield className="h-4 w-4" />{t('Admin')}</Link>}
-          {!inTelegram() && <button className="btn-ghost" onClick={() => { logout(); nav('/') }}><LogOut className="h-4 w-4" />{t('Sign out')}</button>}
-        </div>
-      </div>
-      <nav className="no-scrollbar -mx-4 mt-6 flex gap-1.5 overflow-x-auto px-4 pb-1">
+    <div className="page max-w-5xl pt-4 sm:pt-8">
+      <ProfileCard className="rise" stats={stats} editTo="/account" actions={!inTelegram() && <>
+        {user.role !== 'customer' && <Link to="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-[13px] font-semibold transition hover:bg-raised sm:px-3.5" title={t('Admin dashboard')}><Shield className="h-3.5 w-3.5" /><span className="hidden sm:inline">{t('Admin')}</span></Link>}
+        <button onClick={() => { logout(); nav('/') }} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-[13px] font-semibold text-bad transition hover:bg-bad/5 sm:px-3.5" title={t('Sign out')}><LogOut className="h-3.5 w-3.5" /><span className="hidden sm:inline">{t('Sign out')}</span></button>
+      </>} />
+      <nav className="no-scrollbar mt-5 flex gap-1 overflow-x-auto rounded-2xl border border-line bg-surface p-1">
         {TABS.map(([p, l, Icon]) => (
           <NavLink key={p} end={p === ''} to={link(`/account${p}`)}
-            className={({ isActive }) => cls('flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200',
-              isActive ? 'border-ink bg-ink text-bg shadow-card' : 'border-line bg-surface text-muted hover:-translate-y-px hover:text-ink')}>
+            className={({ isActive }) => cls('flex flex-1 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200',
+              isActive ? 'bg-ink text-bg shadow-card' : 'text-muted hover:bg-raised hover:text-ink')}>
             <Icon className="h-4 w-4" />{t(l)}
           </NavLink>
         ))}

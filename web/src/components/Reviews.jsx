@@ -8,6 +8,7 @@ import { useApp, useLink } from '../context/App'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
 import { cls } from '../lib/format'
+import HumanCheck, { useHuman } from './HumanCheck'
 import { Modal } from './ui'
 
 function Stars({ n, size = 'h-4 w-4' }) {
@@ -91,6 +92,7 @@ function WriteReview({ onClose }) {
   const [text, setText] = useState('')
   const [mine, setMine] = useState(null)
   const [busy, setBusy] = useState(false)
+  const human = useHuman()
   useEffect(() => {
     if (user) api('/api/reviews/mine').then((r) => { setMine(r); if (r.review) { setRating(r.review.rating); setText(r.review.text) } }).catch(() => {})
   }, [user])
@@ -105,7 +107,7 @@ function WriteReview({ onClose }) {
   const submit = async () => {
     setBusy(true)
     try {
-      await api('/api/reviews', { method: 'POST', body: { rating, text: text.trim() } })
+      await api('/api/reviews', { method: 'POST', body: { rating, text: text.trim() }, human: await human.token() })
       toast(t('Thank you! Your review will appear after our team approves it.'))
       onClose()
     } catch (e) { toast(e.message, 'error') } finally { setBusy(false) }
@@ -126,6 +128,7 @@ function WriteReview({ onClose }) {
         placeholder={t('How was buying or selling with TicketNest?')} />
       <p className="mt-1 text-right text-[12px] text-muted">{text.trim().length}/600</p>
       {mine?.role && <p className="mt-1 flex items-center gap-1 text-[12px] text-good"><BadgeCheck className="h-3.5 w-3.5" />{mine.role === 'seller' ? t('Shown as a verified seller') : t('Shown as a verified buyer')}</p>}
+      <HumanCheck human={human} className="mt-3 flex justify-center" />
       <button className="btn-holo mt-4 w-full" disabled={busy || text.trim().length < 10} onClick={submit}>{t('Send for approval')}</button>
     </Modal>
   )

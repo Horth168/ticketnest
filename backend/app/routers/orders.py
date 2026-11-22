@@ -16,6 +16,8 @@ from app.serializers import order_out
 from app.services import email as mail, invoice_pdf, orders as svc, payway, storage
 from app.services.settings_store import get_setting
 
+from app.services.human import require_human
+
 router = APIRouter(prefix="/api/orders", tags=["Orders"])
 
 
@@ -28,7 +30,8 @@ def _mine(db: Session, user: User, number: str) -> Order:
 
 @router.post("", status_code=201)
 @limiter.limit("20/hour")
-def checkout(request: Request, body: CheckoutIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def checkout(request: Request, body: CheckoutIn, user: User = Depends(get_current_user), db: Session = Depends(get_db),
+             _h: None = Depends(require_human)):
     contact = {"name": body.contact_name, "email": body.contact_email or user.email or "",
                "phone": body.contact_phone or user.phone, "telegram": body.contact_telegram}
     order = svc.create_order(db, user, listing_id=body.listing_id, quantity=body.quantity, contact=contact,

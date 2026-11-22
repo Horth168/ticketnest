@@ -3,7 +3,7 @@ are ever returned; pending / rejected listings never leave the admin and seller 
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -14,6 +14,7 @@ from app.security import get_optional_user
 from app.serializers import artist_out, concert_card, listing_public
 from app.services.pricing import buyer_unit_price, quote_for
 from app.services.settings_store import get_setting, public_settings
+from app.cache import cached
 from app.utils import as_aware, utcnow
 
 router = APIRouter(prefix="/api", tags=["Catalogue"])
@@ -48,11 +49,19 @@ def _cards(db: Session, concerts: list[Concert]) -> list[dict]:
 
 @router.get("/settings/public")
 def settings_public(db: Session = Depends(get_db)):
+    return cached("settings", 30, lambda: _settings_public(db))
+
+
+def _settings_public(db: Session = Depends(get_db)):
     return public_settings(db)
 
 
 @router.get("/home")
 def home(db: Session = Depends(get_db)):
+    return cached("home", 15, lambda: _home(db))
+
+
+def _home(db: Session = Depends(get_db)):
     upcoming = _live_concerts(db).order_by(Concert.starts_at).limit(12).all()
     featured = _live_concerts(db).filter(Concert.is_featured.is_(True)).order_by(Concert.starts_at).limit(6).all()
     artists = (db.query(Artist).filter(Artist.is_active.is_(True))
@@ -75,6 +84,10 @@ def home(db: Session = Depends(get_db)):
 
 @router.get("/artists")
 def artists(db: Session = Depends(get_db), q: str = ""):
+    return cached(f"artists|{q[:60].lower()}", 60, lambda: _artists(db, q))
+
+
+def _artists(db: Session = Depends(get_db), q: str = ""):
     query = db.query(Artist).filter(Artist.is_active.is_(True))
     if q:
         query = query.filter(Artist.name.ilike(f"%{q[:60]}%"))
@@ -86,6 +99,10 @@ def artists(db: Session = Depends(get_db), q: str = ""):
 
 @router.get("/artists/{slug}")
 def artist_detail(slug: str, db: Session = Depends(get_db)):
+    return cached(f"artist|{slug[:140]}", 30, lambda: _artist_detail(slug, db))
+
+
+def _artist_detail(slug: str, db: Session = Depends(get_db)):
     a = db.query(Artist).filter_by(slug=slug, is_active=True).first()
     if not a:
         raise HTTPException(404, "Artist not found")
@@ -94,7 +111,14 @@ def artist_detail(slug: str, db: Session = Depends(get_db)):
 
 
 @router.get("/concerts")
-def concerts(db: Session = Depends(get_db), q: str = "", artist: str = "", country: str = "", city: str = "",
+def concerts(request: Request, db: Session = Depends(get_db), q: str = "", artist: str = "", country: str = "", city: str = "",
+             venue: str = "", date_from: datetime | None = None, date_to: datetime | None = None,
+             category: str = "", available: bool = False, sort: str = "date",
+             page: int = Query(1, ge=1, le=200), size: int = Query(24, ge=1, le=60)):
+    return cached("concerts|" + str(request.url.query)[:400], 15, lambda: _concerts(db=db, q=q, artist=artist, country=country, city=city, venue=venue, date_from=date_from, date_to=date_to, category=category, available=available, sort=sort, page=page, size=size))
+
+
+def _concerts(db: Session = Depends(get_db), q: str = "", artist: str = "", country: str = "", city: str = "",
              venue: str = "", date_from: datetime | None = None, date_to: datetime | None = None,
              category: str = "", available: bool = False, sort: str = "date",
              page: int = Query(1, ge=1, le=200), size: int = Query(24, ge=1, le=60)):
@@ -128,6 +152,10 @@ def concerts(db: Session = Depends(get_db), q: str = "", artist: str = "", count
 
 @router.get("/concerts/filters")
 def concert_filters(db: Session = Depends(get_db)):
+    return cached("filters", 60, lambda: _concert_filters(db))
+
+
+def _concert_filters(db: Session = Depends(get_db)):
     live = _live_concerts(db)
     countries = sorted({c for (c,) in live.with_entities(Concert.country).distinct()})
     cities = sorted({(co, ci) for co, ci in live.with_entities(Concert.country, Concert.city).distinct()})
@@ -154,6 +182,12 @@ def seller_sales(db: Session, seller_ids) -> dict[int, int]:
 
 @router.get("/concerts/{slug}")
 def concert_detail(slug: str, db: Session = Depends(get_db), user: User | None = Depends(get_optional_user)):
+    if user and user.role in (Role.staff, Role.admin):
+        return _concert_detail(slug, db, user)
+    return cached(f"concert|{slug[:220]}", 10, lambda: _concert_detail(slug, db, None))
+
+
+def _concert_detail(slug: str, db: Session, user: User | None):
     c = (db.query(Concert).options(joinedload(Concert.artist), joinedload(Concert.categories))
          .filter(Concert.slug == slug).first())
     staff = bool(user and user.role in (Role.staff, Role.admin))

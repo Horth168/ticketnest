@@ -18,6 +18,7 @@ import Explore, { Artists } from '../pages/Explore'
 import Home from '../pages/Home'
 import TicketsPage from '../pages/Tickets'
 import { TabBar } from '../components/Layout'
+import ProfileCard, { money, useProfileStats } from '../components/ProfileCard'
 import { HowItWorks, Policy, Support } from '../pages/Info'
 import { LANGS, useT } from '../i18n'
 import { Avatar } from '../components/ui'
@@ -142,19 +143,9 @@ function TgSearch() {
 function TgProfile() {
   const { user, settings } = useApp()
   const { t, lang, setLang } = useT()
-  const [stats, setStats] = useState(null)
-  useEffect(() => {
-    Promise.all([api('/api/orders').catch(() => []), api('/api/sell/dashboard').catch(() => null)])
-      .then(([orders, dash]) => setStats({
-        tickets: orders.filter((o) => !['cancelled', 'refunded'].includes(o.status)).reduce((n, o) => n + (o.item?.quantity || 0), 0),
-        listings: dash?.total_listings ?? 0,
-        wallet: dash?.wallet?.available_cents ?? 0,
-        pending: dash?.wallet?.pending_cents ?? 0,
-      }))
-  }, [])
+  const stats = useProfileStats()
   const support = settings?.telegram?.support_username
   const staff = user.role !== 'customer'
-  const money = (c) => `$${(c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   const groups = [
     [t('Activity'), [
       ['/tg/tickets', Ticket, t('My tickets'), 'bg-[#8B5CF6]', stats?.tickets ? String(stats.tickets) : ''],
@@ -175,34 +166,7 @@ function TgProfile() {
   ]
   return (
     <div className="page max-w-lg pb-6 pt-3">
-      {/* identity card */}
-      <section className="relative overflow-hidden rounded-[28px] border border-line bg-surface shadow-card">
-        <div className="holo-bg absolute inset-x-0 top-0 h-24 opacity-90" />
-        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-transparent to-black/10" />
-        <div className="relative px-5 pb-5 pt-12">
-          <div className="flex items-end justify-between gap-3">
-            <div className="rounded-full bg-surface p-1 shadow-card"><Avatar user={user} size={76} /></div>
-            <Link to="/tg/account" onClick={() => haptic('light')} className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-[13px] font-semibold transition active:scale-95">
-              <Pencil className="h-3.5 w-3.5" />{t('Edit')}
-            </Link>
-          </div>
-          <h1 className="mt-3 flex items-center gap-2 text-[22px] font-bold leading-tight">
-            <span className="truncate">{user.full_name}</span>
-            {staff && <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-accent">{t(user.role === 'admin' ? 'Admin' : 'Staff')}</span>}
-          </h1>
-          <p className="mt-0.5 truncate text-[13.5px] text-muted">{user.telegram_username ? `@${user.telegram_username}` : t('Telegram account')}{user.email ? ` · ${user.email}` : ''}</p>
-          {/* quick stats */}
-          <div className="mt-4 grid grid-cols-3 divide-x divide-line rounded-2xl bg-raised py-3 text-center">
-            {[[t('Tickets'), stats ? stats.tickets : '–', '/tg/tickets'], [t('Listings'), stats ? stats.listings : '–', '/tg/listings'], [t('Wallet'), stats ? money(stats.wallet) : '–', '/tg/account/wallet']].map(([l, v, to]) => (
-              <Link key={l} to={to} onClick={() => haptic('light')} className="px-1 transition active:opacity-60">
-                <p className="truncate font-display text-[17px] font-bold tabular-nums">{v}</p>
-                <p className="text-[11.5px] font-medium text-muted">{l}</p>
-              </Link>
-            ))}
-          </div>
-          {stats?.pending > 0 && <p className="mt-2 text-center text-[12px] text-muted">{t('{amount} pending until buyers receive their tickets', { amount: money(stats.pending) })}</p>}
-        </div>
-      </section>
+      <ProfileCard stats={stats} editTo="/account" />
 
       {/* language */}
       <p className="mb-2 ml-4 mt-6 text-[12px] font-semibold uppercase tracking-[.12em] text-muted">{t('Language')}</p>

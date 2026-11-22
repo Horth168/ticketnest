@@ -1,3 +1,4 @@
+import HumanCheck, { useHuman } from '../components/HumanCheck'
 import { ArrowLeft, Check, Clock, Copy, Download, ExternalLink, FileText, MessageCircle, ShieldCheck, Smartphone, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -48,6 +49,7 @@ export default function Checkout() {
 
   useEffect(() => { api(`/api/listings/${listingId}/quote?quantity=${qty}`).then(setQ).catch(setError) }, [listingId, qty])
 
+  const human = useHuman()
   const valid = f.name.trim().length >= 2 && f.telegram.trim().length >= 4 && f.terms && q && q.available >= qty
   const submit = useCallback(async () => {
     if (!valid || busy) return
@@ -56,11 +58,11 @@ export default function Checkout() {
       const o = await api('/api/orders', { method: 'POST', body: {
         listing_id: Number(listingId), quantity: qty, contact_name: f.name, contact_email: f.email || null,
         contact_phone: f.phone, contact_telegram: f.telegram, idempotency_key: key.current,
-        channel: inTelegram() ? 'miniapp' : 'web', accept_terms: f.terms } })
+        channel: inTelegram() ? 'miniapp' : 'web', accept_terms: f.terms }, human: await human.token() })
       haptic('success')
       nav(link(`/orders/${o.order_number}`), { replace: true })
     } catch (e) { haptic('error'); setError(e); toast(e.message, 'error'); key.current = newKey() } finally { setBusy(false) }
-  }, [valid, busy, listingId, qty, f, nav, link, toast])
+  }, [valid, busy, listingId, qty, f, nav, link, toast, human])
 
   useMainButton(q ? t('Pay {amount} with KHQR', { amount: usd2(q.total_cents) }) : null, submit, { enabled: valid, loading: busy })
 
@@ -90,6 +92,7 @@ export default function Checkout() {
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[rgb(var(--accent))]" checked={f.terms} onChange={set('terms')} />
             <span className="text-muted">{t('I agree to the terms and refund policy, and understand this is a resale ticket delivered via Telegram after my payment is verified.')} <Link className="text-accent hover:underline" to="/policies/terms" target="_blank">{t('Terms')}</Link> · <Link className="text-accent hover:underline" to="/policies/refunds" target="_blank">{t('Refund policy')}</Link></span>
           </label>
+          <HumanCheck human={human} className="flex justify-center" />
           <ErrorNote error={error} />
           {!inTelegram() && (
             <button type="submit" className="btn-accent w-full py-3.5 text-[15px]" disabled={!valid || busy}>

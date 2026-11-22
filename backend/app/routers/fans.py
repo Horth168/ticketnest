@@ -20,6 +20,8 @@ from app.services import alerts, audit, backup
 from app.services import telegram as tg
 from app.utils import iso, utcnow
 
+from app.services.human import require_human
+
 router = APIRouter(tags=["Fans"])
 DONE = (OrderStatus.delivered, OrderStatus.completed)
 
@@ -87,6 +89,14 @@ def _role(db: Session, user: User) -> str:
 @router.get("/api/reviews")
 def public_reviews(db: Session = Depends(get_db), user: Optional[User] = Depends(get_optional_user), preview: int = 0):
     """Approved reviews for the homepage slider. Staff with ?preview=1 also see sample content."""
+    staff = bool(user and user.role in (Role.staff, Role.admin))
+    if not (preview and staff):
+        from app.cache import cached
+        return cached("reviews", 30, lambda: _public_reviews(db, None, 0))
+    return _public_reviews(db, user, preview)
+
+
+def _public_reviews(db: Session, user, preview: int):
     q = db.query(Review).filter(Review.status == ReviewStatus.approved, Review.is_sample.is_(False))
     rows = q.order_by(Review.created_at.desc()).limit(30).all()
     staff = bool(user and user.role in (Role.staff, Role.admin))
@@ -108,7 +118,8 @@ def my_review(db: Session = Depends(get_db), user: User = Depends(get_current_us
 
 @router.post("/api/reviews", status_code=201)
 @limiter.limit("5/hour")
-def write_review(request: Request, body: ReviewIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def write_review(request: Request, body: ReviewIn, db: Session = Depends(get_db), user: User = Depends(get_current_user),
+                 _h: None = Depends(require_human)):
     """One review per customer; writing again replaces it and sends it back for approval."""
     r = db.query(Review).filter_by(user_id=user.id, is_sample=False).first()
     if r is None:

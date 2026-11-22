@@ -31,7 +31,7 @@ app.state.limiter = limiter
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
                    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-                   allow_headers=["Authorization", "Content-Type"], expose_headers=["Content-Disposition"],
+                   allow_headers=["Authorization", "Content-Type", "X-Human-Token"], expose_headers=["Content-Disposition"],
                    max_age=600)
 
 
@@ -41,6 +41,9 @@ async def security_headers(request: Request, call_next):
     if size and size.isdigit() and int(size) > settings.MAX_REQUEST_MB * 1024 * 1024:
         return JSONResponse({"detail": "Request is too large"}, status_code=413)
     response = await call_next(request)
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and response.status_code < 400:
+        from app import cache   # anything changed (admin edit, approval, order, listing): drop cached public pages
+        cache.clear()
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     if not request.url.path.startswith("/media/"):

@@ -1,3 +1,4 @@
+import HumanCheck, { useHuman } from '../components/HumanCheck'
 import { ShieldCheck, Ticket, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -63,6 +64,7 @@ function Divider() {
 }
 
 export function Login() {
+  const human = useHuman()
   const done = useAfterLogin()
   const { t } = useT()
   const [sp] = useSearchParams()
@@ -71,7 +73,7 @@ export function Login() {
   const [error, setError] = useState(null)
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setError(null)
-    try { done(await api('/api/auth/login', { method: 'POST', body: f })) } catch (err) { setError(err) } finally { setBusy(false) }
+    try { done(await api('/api/auth/login', { method: 'POST', body: f, human: await human.token() })) } catch (err) { setError(err) } finally { setBusy(false) }
   }
   const next = sp.get('next') ? `?next=${encodeURIComponent(sp.get('next'))}` : ''
   return (
@@ -85,6 +87,7 @@ export function Login() {
           <Link to="/forgot-password" className="font-medium text-accent hover:underline">{t('Forgot password?')}</Link>
         </div>
         <ErrorNote error={error} />
+        <HumanCheck human={human} className="flex justify-center" />
         <button className="btn-primary w-full py-3" disabled={busy}>{busy && <Spinner className="h-4 w-4" />}{t('Sign in')}</button>
       </form>
       <p className="mt-5 text-center text-sm text-muted">{t('New to TicketNest?')} <Link to={`/register${next}`} className="font-semibold text-accent hover:underline">{t('Create an account')}</Link></p>
@@ -93,6 +96,7 @@ export function Login() {
 }
 
 export function Register() {
+  const human = useHuman()
   const done = useAfterLogin()
   const { t } = useT()
   const [sp] = useSearchParams()
@@ -102,7 +106,7 @@ export function Register() {
   const errFor = (k) => error?.errors?.find((x) => x.field === k)?.message
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setError(null)
-    try { done(await api('/api/auth/register', { method: 'POST', body: f })) } catch (err) { setError(err) } finally { setBusy(false) }
+    try { done(await api('/api/auth/register', { method: 'POST', body: f, human: await human.token() })) } catch (err) { setError(err) } finally { setBusy(false) }
   }
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
   const next = sp.get('next') ? `?next=${encodeURIComponent(sp.get('next'))}` : ''
@@ -117,6 +121,7 @@ export function Register() {
           <PasswordInput autoComplete="new-password" value={f.password} onChange={set('password')} required minLength={8} />
         </Field>
         {error && !error.errors && <ErrorNote error={error} />}
+        <HumanCheck human={human} className="flex justify-center" />
         <button className="btn-primary w-full py-3" disabled={busy}>{busy && <Spinner className="h-4 w-4" />}{t('Create account')}</button>
         <p className="text-center text-[12px] text-muted">{t('By creating an account you agree to our terms and privacy policy.')} <Link to="/policies/terms" className="underline">{t('Terms')}</Link> · <Link to="/policies/privacy" className="underline">{t('Privacy')}</Link></p>
       </form>
@@ -126,6 +131,7 @@ export function Register() {
 }
 
 export function Forgot() {
+  const human = useHuman()
   const { t } = useT()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
@@ -133,7 +139,7 @@ export function Forgot() {
   const [busy, setBusy] = useState(false)
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setError(null)
-    try { await api('/api/auth/forgot-password', { method: 'POST', body: { email } }); setSent(true) } catch (err) { setError(err) } finally { setBusy(false) }
+    try { await api('/api/auth/forgot-password', { method: 'POST', body: { email }, human: await human.token() }); setSent(true) } catch (err) { setError(err) } finally { setBusy(false) }
   }
   return (
     <Shell title={t('Reset your password')} sub={t("We'll email you a link that works once and expires in an hour.")}>
@@ -141,6 +147,7 @@ export function Forgot() {
         <form onSubmit={submit} className="space-y-4">
           <Field label={t('Email')}><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></Field>
           <ErrorNote error={error} />
+          <HumanCheck human={human} className="flex justify-center" />
           <button className="btn-primary w-full py-3" disabled={busy}>{busy && <Spinner className="h-4 w-4" />}{t('Send reset link')}</button>
         </form>
       )}

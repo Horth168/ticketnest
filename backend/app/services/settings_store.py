@@ -99,5 +99,7 @@ def public_settings(db: Session) -> dict:
     data["fees"] = {"seller_commission_bps": commission, "buyer_markup_bps": markup}
     data["payments"] = {"khqr_enabled": bool(pay["khqr_enabled"] and pay["khqr_template"]),
                         "qr_expiry_minutes": pay["qr_expiry_minutes"]}
-    data["auth"] = {"google_client_id": settings.GOOGLE_CLIENT_ID, "telegram": social.telegram_enabled()}
+    from app.services import human
+    data["auth"] = {"google_client_id": settings.GOOGLE_CLIENT_ID, "telegram": social.telegram_enabled(),
+                    "turnstile_site_key": settings.TURNSTILE_SITE_KEY if human.enabled() else ""}
     return data

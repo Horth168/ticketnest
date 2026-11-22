@@ -1,3 +1,4 @@
+import HumanCheck, { useHuman } from '../components/HumanCheck'
 import { Check, ChevronLeft, FileText, ImagePlus, Info, QrCode, Receipt, Search, ShieldCheck, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -67,6 +68,7 @@ export default function Sell() {
   const go = (n) => { setStep(n); window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
   const priceHigh = Number(f.price) > 0 && Number(f.original_price) > 0 && Number(f.price) > Number(f.original_price) * 3
+  const human = useHuman()
   const ok = [
     !!concert, !!f.category_id,
     Number(f.original_price) >= 1 && Number(f.price) >= 1 && f.quantity >= 1 && f.quantity <= 20,
@@ -83,7 +85,7 @@ export default function Sell() {
     f.receipts.forEach((file) => fd.append('receipts', file))
     if (f.payout_qr) fd.append('payout_qr', f.payout_qr)
     try {
-      await api('/api/sell/listings', { method: 'POST', form: fd })
+      await api('/api/sell/listings', { method: 'POST', form: fd, human: await human.token() })
       haptic('success')
       toast(t('Listing submitted for approval'))
       nav(link('/account/listings'), { replace: true })
@@ -223,6 +225,7 @@ export default function Sell() {
               <span className="text-muted">{t("I confirm these tickets are mine, genuine, and not listed for sale anywhere else, and that the receipt is real. I'll transfer them to the buyer when TicketNest asks.")} <Link to="/policies/terms" className="text-accent hover:underline">{t('Seller terms')}</Link></span>
             </label>
             <p className="flex gap-2 text-[13px] text-muted"><ShieldCheck className="h-4 w-4 shrink-0 text-good" />{t("Your listing goes live only after our team approves it. You'll get a message when it's reviewed.")}</p>
+            <HumanCheck human={human} className="flex justify-center" />
             <ErrorNote error={error} />
           </div>
         )}

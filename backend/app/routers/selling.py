@@ -16,6 +16,8 @@ from app.services import audit, notify, storage, wallet
 from app.services.pricing import quote_for
 from app.utils import as_aware, clean_text, clean_tg_username, to_cents, utcnow
 
+from app.services.human import require_human
+
 router = APIRouter(prefix="/api/sell", tags=["Sell tickets"])
 MAX_FILES = 5
 PAID_STATES = (OrderStatus.paid, OrderStatus.preparing, OrderStatus.awaiting_delivery, OrderStatus.delivered,
@@ -53,7 +55,8 @@ async def create_listing(request: Request,
                          files: list[UploadFile] = File(...),
                          receipts: list[UploadFile] = File(...),
                          payout_qr: UploadFile | None = File(None),
-                         user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+                         user: User = Depends(get_current_user), db: Session = Depends(get_db),
+                         _h: None = Depends(require_human)):
     if not confirm_owner:
         raise HTTPException(422, "Please confirm the tickets are yours and genuine")
     concert = db.get(Concert, concert_id)

@@ -168,3 +168,46 @@ def test_khqr_card_image_scans_and_shows_merchant(client, setup):
     img = cv2.imdecode(np.frombuffer(r.content, np.uint8), cv2.IMREAD_COLOR)
     assert img.shape[0] > img.shape[1]                     # tall card, not a bare square QR
     assert cv2.QRCodeDetector().detectAndDecode(img)[0] == k["payload"]
+
+
+def test_turnstile_and_login_lockout(client, setup, monkeypatch):
+    from app.config import settings
+    from app.services import human
+    # lockout: 8 wrong passwords -> locked, even with the right one
+    for _ in range(8):
+        assert client.post("/api/auth/login", json={"email": "buyer2@example.com", "password": "wrong-pass"}).status_code == 401
+    r = client.post("/api/auth/login", json={"email": "buyer2@example.com", "password": "secret123"})
+    assert r.status_code == 429 and "Try again" in r.json()["detail"]
+    human._locked.clear()
+    assert client.post("/api/auth/login", json={"email": "buyer2@example.com", "password": "secret123"}).status_code == 200
+    # Turnstile on: no token -> 403; Cloudflare says ok -> allowed; site key published
+    monkeypatch.setattr(settings, "TURNSTILE_SITE_KEY", "site-key")
+    monkeypatch.setattr(settings, "TURNSTILE_SECRET_KEY", "secret")
+    assert client.get("/api/settings/public").json()["auth"]["turnstile_site_key"] == "site-key"
+    assert client.post("/api/auth/login", json={"email": "buyer@example.com", "password": "secret123"}).status_code == 403
+    calls = []
+    class R:
+        def __init__(self, ok): self.ok = ok
+        def json(self): return {"success": self.ok}
+    monkeypatch.setattr(human.httpx, "post", lambda url, timeout, data: calls.append(data) or R(data["response"] == "good"))
+    assert client.post("/api/auth/login", json={"email": "buyer@example.com", "password": "secret123"},
+                       headers={"X-Human-Token": "bad"}).status_code == 403
+    assert client.post("/api/auth/login", json={"email": "buyer@example.com", "password": "secret123"},
+                       headers={"X-Human-Token": "good"}).status_code == 200
+    assert calls[-1]["secret"] == "secret"
+
+
+def test_public_pages_cached_and_cleared_on_changes(client, setup, monkeypatch):
+    from app import cache
+    monkeypatch.setattr(cache, "_force", True)
+    cache.clear()
+    calls = []
+    import app.routers.catalog as cat
+    real = cat._home
+    monkeypatch.setattr(cat, "_home", lambda db: calls.append(1) or real(db))
+    client.get("/api/home"); client.get("/api/home"); client.get("/api/home")
+    assert len(calls) == 1                                  # built once, then served from memory
+    l = create_listing(client, setup)                       # any change clears the cache
+    client.post(f"/api/admin/listings/{l['id']}/approve", headers=setup["admin"])
+    assert client.get("/api/home").json()["recent_listings"][0]["id"] == l["id"] and len(calls) == 2
+    cache.clear()

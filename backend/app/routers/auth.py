@@ -18,6 +18,9 @@ from app.serializers import user_out
 from app.services import audit, email as mail, notify, social
 from app.utils import as_aware, utcnow
 
+from app.services import human
+from app.services.human import require_human
+
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 _DUMMY_HASH = hash_password("dummy-password-123")
 FORGOT_MESSAGE = "If an account exists for that email, we've sent a link to reset your password."
@@ -30,7 +33,7 @@ def _session(db: Session, user: User, remember: bool = True) -> dict:
 
 @router.post("/register", status_code=201)
 @limiter.limit("10/hour")
-def register(request: Request, body: RegisterIn, db: Session = Depends(get_db)):
+def register(request: Request, body: RegisterIn, db: Session = Depends(get_db), _h: None = Depends(require_human)):
     email = body.email.lower()
     if db.query(User).filter(func.lower(User.email) == email).first():
         raise HTTPException(409, "An account with this email already exists. Sign in instead.")
@@ -47,16 +50,19 @@ def register(request: Request, body: RegisterIn, db: Session = Depends(get_db)):
 
 @router.post("/login")
 @limiter.limit("10/minute")
-def login(request: Request, body: LoginIn, db: Session = Depends(get_db)):
+def login(request: Request, body: LoginIn, db: Session = Depends(get_db), _h: None = Depends(require_human)):
+    human.check_login_allowed(body.email, request)
     user = db.query(User).filter(func.lower(User.email) == body.email.lower()).first()
     ok = verify_password(body.password, user.password_hash if user and user.password_hash else _DUMMY_HASH)
     if not user or not ok:
+        human.login_failed(body.email, request)
         if user and not user.password_hash:
             raise HTTPException(401, "This account signs in with Google or Telegram. Use that button, or reset "
                                      "your password to add one.")
         raise HTTPException(401, "Incorrect email or password")
     if not user.is_active:
         raise HTTPException(403, "This account has been disabled")
+    human.login_succeeded(body.email, request)
     return _session(db, user, body.remember)
 
 
@@ -77,7 +83,7 @@ def _hash(token: str) -> str:
 
 @router.post("/forgot-password")
 @limiter.limit("5/hour")
-def forgot_password(request: Request, body: ForgotIn, db: Session = Depends(get_db)):
+def forgot_password(request: Request, body: ForgotIn, db: Session = Depends(get_db), _h: None = Depends(require_human)):
     """Always the same answer, so the form can't be used to discover who has an account."""
     user = db.query(User).filter(func.lower(User.email) == body.email.lower(), User.is_active.is_(True)).first()
     if user:

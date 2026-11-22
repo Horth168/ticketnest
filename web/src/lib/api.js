@@ -33,8 +33,9 @@ async function refresh() {
   return refreshing
 }
 
-export async function api(path, { method = 'GET', body, form, raw, retry = true } = {}) {
+export async function api(path, { method = 'GET', body, form, raw, retry = true, human } = {}) {
   const headers = {}
+  if (human) headers['X-Human-Token'] = human   // Cloudflare Turnstile token (components/HumanCheck)
   const t = tokens.get()
   if (t?.access_token) headers.Authorization = `Bearer ${t.access_token}`
   let payload

@@ -75,6 +75,9 @@ class Settings(BaseSettings):
 
     # --- Google sign-in (client ID is public) ---
     GOOGLE_CLIENT_ID: str = ""
+    # Cloudflare Turnstile bot check (free). Off until both are set. Site key is public, secret is not.
+    TURNSTILE_SITE_KEY: str = ""
+    TURNSTILE_SECRET_KEY: str = ""
 
     # --- First admin on hosts without a shell ---
     INITIAL_ADMIN_EMAIL: str = ""

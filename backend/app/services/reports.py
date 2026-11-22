@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -20,7 +20,8 @@ REPORT_KEY = "daily_report_last"
 
 
 def day_bounds(day) -> tuple[datetime, datetime]:
-    start = datetime.combine(day, time.min, tzinfo=LOCAL_TZ)
+    """A Phnom Penh calendar day as UTC instants (SQLite drops time zones when comparing, Postgres doesn't)."""
+    start = datetime.combine(day, time.min, tzinfo=LOCAL_TZ).astimezone(timezone.utc)
     return start, start + timedelta(days=1)
 
 
