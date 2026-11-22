@@ -25,7 +25,10 @@ def _make_engine(url: str):
             cur.close()
 
         return eng
-    return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=10)
+    # Neon's pooled hosts ("-pooler") run PgBouncer in transaction mode: turn off server-side prepared
+    # statements so both pooled and direct connection strings work.
+    args = {"prepare_threshold": None} if "-pooler" in url else {}
+    return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=10, connect_args=args)
 
 
 engine = _make_engine(settings.DATABASE_URL)
