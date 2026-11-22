@@ -1,4 +1,4 @@
-import { FileText, MessageCircle, Send } from 'lucide-react'
+import { AlertTriangle, FileText, Lock, MessageCircle, Send, Unlock } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Badge, Empty, ErrorNote, Field, Loading, Modal, OrderBadge, Row } from '../../components/ui'
@@ -6,6 +6,8 @@ import { useApp } from '../../context/App'
 import { api, openFile } from '../../lib/api'
 import { dateLong, dateTime, usd2 } from '../../lib/format'
 import { H, Tabs } from './AdminApp'
+
+const REASONS = { not_received: 'Ticket not received', invalid: "Ticket didn't work / entry refused", wrong: 'Wrong seat, category or quantity', other: 'Other problem' }
 
 export default function Orders() {
   return <Routes><Route index element={<OrderList />} /><Route path=":id" element={<OrderDetail />} /></Routes>
@@ -99,6 +101,23 @@ function OrderDetail() {
               </div>
             </div>
           )}
+          {o.issue?.status === 'open' && (
+            <div className="card border-warn/50 bg-warn/5 p-5">
+              <p className="flex items-center gap-2 font-semibold text-warn"><AlertTriangle className="h-5 w-5" />Buyer reported a problem</p>
+              <p className="mt-2 text-sm"><b>{REASONS[o.issue.reason] || o.issue.reason}</b> · <span className="text-muted">{dateTime(o.issue.opened_at)}</span></p>
+              <p className="mt-1 whitespace-pre-line text-sm">“{o.issue.details}”</p>
+              <p className="mt-3 text-[13px] text-muted">The seller's payout is frozen. Check with the buyer and seller, then either dismiss the report (the seller is paid on schedule) or record a refund (the seller's earnings are taken back).</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button className="btn-primary" onClick={() => setModal('resolve')}>Dismiss report</button>
+                {admin && <button className="btn-danger" onClick={() => setModal('refund')}>Record refund</button>}
+              </div>
+            </div>
+          )}
+          {o.issue?.status === 'resolved' && (
+            <div className="card p-5 text-sm"><p className="font-semibold">Problem report resolved</p>
+              <p className="mt-1 text-muted">{REASONS[o.issue.reason] || o.issue.reason} · “{o.issue.details}”</p>
+              <p className="mt-1">{o.issue.resolution} <span className="text-muted">· {dateTime(o.issue.resolved_at)}</span></p></div>
+          )}
           <div className="card p-5">
             <p className="mb-2 font-semibold">{o.item.concert_title}</p>
             <p className="mb-3 text-sm text-muted">{dateLong(o.item.concert_starts_at)} · {o.item.venue}</p>
@@ -152,6 +171,20 @@ function OrderDetail() {
               {o.delivery.has_file && <button className="btn-ghost mt-3 w-full" onClick={() => openFile(`/api/admin/orders/${o.id}/delivery-file`, 'delivery')}>Open attached file</button>}
             </div>
           )}
+          {['delivered', 'completed'].includes(o.status) && o.seller_payout_cents > 0 && (
+            <div className="card p-5 text-sm">
+              <p className="mb-2 flex items-center gap-2 font-semibold">{o.payout_released_at ? <Unlock className="h-4 w-4 text-good" /> : <Lock className="h-4 w-4 text-warn" />}Seller payout</p>
+              {o.payout_released_at
+                ? <p className="text-good">Released {dateTime(o.payout_released_at)}</p>
+                : o.payout_release_at
+                  ? <p className="text-muted">Held until {dateTime(o.payout_release_at)} (after the concert){o.issue?.status === 'open' && ', frozen by the buyer\'s report'}</p>
+                  : <p className="text-muted">Released at delivery (before buyer protection)</p>}
+              {o.buyer_confirmed_at && <p className="mt-1 text-good">Buyer confirmed receipt {dateTime(o.buyer_confirmed_at)}</p>}
+              {admin && !o.payout_released_at && o.payout_release_at && o.issue?.status !== 'open' && (
+                <button className="btn-ghost mt-3 w-full" onClick={() => { if (confirm('Pay the seller now, before the usual hold ends? Only do this if you are sure the ticket is genuine.')) post('release-payout') }}>Release payout now</button>
+              )}
+            </div>
+          )}
           <div className="card space-y-2 p-5">
             {o.status === 'delivered' && <button className="btn-ghost w-full" onClick={() => post('status', { status: 'completed' })}>Mark completed</button>}
             {o.status === 'awaiting_payment' && <button className="btn-danger w-full" onClick={() => setModal('cancel')}>Cancel order</button>}
@@ -164,6 +197,8 @@ function OrderDetail() {
       <DeliverModal open={modal === 'deliver'} onClose={() => setModal(null)} onSubmit={(fd) => post('deliver', undefined, fd)} />
       <ReasonModal open={modal === 'cancel'} title="Cancel order" label="Reason" onClose={() => setModal(null)} onSubmit={(r) => post('cancel', { reason: r })} />
       <RefundModal open={modal === 'refund'} onClose={() => setModal(null)} onSubmit={(b) => post('refund', b)} />
+      <ReasonModal open={modal === 'resolve'} title="Dismiss the buyer's report" label="What you found (shown to the buyer)"
+        hint="The seller will be paid on schedule. To give the buyer their money back instead, use Record refund." onClose={() => setModal(null)} onSubmit={(n) => post('issue/resolve', { note: n })} />
       <ReasonModal open={modal === 'pay'} title="Confirm payment manually" label="ABA transaction ID (from the PayWay message or bank app)"
         hint="Only use this after you have checked the money arrived. Each transaction ID can be used once." onClose={() => setModal(null)} onSubmit={(t) => post('confirm-payment', { trx_id: t })} />
     </div>

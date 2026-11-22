@@ -43,6 +43,7 @@ def listing_public(db: Session, l: TicketListing) -> dict:
             "original_price_cents": l.original_price_cents, "available": l.available if l.status in PUBLIC_LISTING else 0,
             "seat_info": l.seat_info, "ticket_type": l.ticket_type.value, "notes": l.notes,
             "status": l.status.value, "seller_label": "Verified seller" if l.seller_id else "TicketNest",
+            "face_value_or_less": l.price_cents <= l.original_price_cents,
             "listed_at": iso(l.created_at)}
 
 
@@ -105,6 +106,11 @@ def order_out(order: Order, *, admin: bool = False, with_qr: bool = False) -> di
                      if order.delivery else None),
         "events": [{"status": ev.status, "note": ev.note if admin or not ev.status.startswith("admin") else "",
                     "at": iso(ev.created_at)} for ev in order.events],
+        "buyer_confirmed_at": iso(order.buyer_confirmed_at),
+        "issue": {"status": order.issue_status, "reason": order.issue_reason, "details": order.issue_details,
+                  "opened_at": iso(order.issue_opened_at), "resolved_at": iso(order.issue_resolved_at),
+                  "resolution": order.issue_resolution} if order.issue_status else None,
+        "payout_release_at": iso(order.payout_release_at), "payout_released_at": iso(order.payout_released_at),
     }
     if with_qr and pay and order.status.value == "awaiting_payment":
         from app.services.khqr_card import merchant_name

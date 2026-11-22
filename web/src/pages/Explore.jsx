@@ -1,3 +1,4 @@
+import { usePageMeta } from '../lib/seo'
 import { SlidersHorizontal, Ticket, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -11,6 +12,7 @@ import { cls } from '../lib/format'
 const KEYS = ['q', 'artist', 'country', 'city', 'venue', 'category', 'date_from', 'date_to', 'available']
 
 export default function Explore({ compact = false }) {
+  usePageMeta({ title: 'Buy K-pop concert tickets', description: 'All upcoming K-pop concerts with verified resale tickets on TicketNest. Pay with KHQR, get your ticket on Telegram.' })
   const { t } = useT()
   const [params, setParams] = useSearchParams()
   const [filters, setFilters] = useState(null)
@@ -104,6 +106,7 @@ function Sel({ label, value, onChange, options }) {
 }
 
 export function Artists() {
+  usePageMeta({ title: 'K-pop artists', description: 'K-pop artists with upcoming concerts and resale tickets on TicketNest.' })
   const { t } = useT()
   const [rows, setRows] = useState(null)
   const [q, setQ] = useState('')

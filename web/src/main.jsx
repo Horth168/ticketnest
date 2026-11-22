@@ -16,6 +16,7 @@ import Home from './pages/Home'
 import { HowItWorks, NotFound, Policy, Support } from './pages/Info'
 import Sell from './pages/Sell'
 import TicketsPage from './pages/Tickets'
+import Guarantee from './pages/Guarantee'
 
 const AdminApp = lazy(() => import('./pages/admin/AdminApp'))
 const MiniApp = lazy(() => import('./tg/MiniApp'))
@@ -59,6 +60,7 @@ createRoot(document.getElementById('root')).render(
               <Route path="forgot-password" element={<Forgot />} />
               <Route path="reset-password" element={<Reset />} />
               <Route path="how-it-works" element={<HowItWorks />} />
+              <Route path="guarantee" element={<Guarantee />} />
               <Route path="policies/:slug" element={<Policy />} />
               <Route path="support" element={<Support />} />
               <Route path="sell-tickets" element={<Navigate to="/sell" replace />} />

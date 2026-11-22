@@ -67,7 +67,7 @@ def credit_pending(db: Session, order: Order) -> None:
         _record(db, w, WalletTxType.sale_pending, amount, order_id=order.id, note=f"{order.order_number} paid")
 
 
-def release(db: Session, order: Order, actor: User | None = None) -> None:
+def release(db: Session, order: Order, actor: User | None = None, note: str = "") -> None:
     for seller_id, amount in _sellers(order).items():
         w = get_wallet(db, seller_id)
         if not _done(db, w, WalletTxType.sale_pending, order.id) or _done(db, w, WalletTxType.sale_released, order.id) \
@@ -79,7 +79,7 @@ def release(db: Session, order: Order, actor: User | None = None) -> None:
         if res.rowcount != 1:
             raise HTTPException(409, "Seller wallet is out of sync")
         _record(db, w, WalletTxType.sale_released, amount, order_id=order.id,
-                note=f"{order.order_number} delivered", actor=actor)
+                note=note or f"{order.order_number} delivered", actor=actor)
 
 
 def reverse(db: Session, order: Order, actor: User | None = None) -> None:

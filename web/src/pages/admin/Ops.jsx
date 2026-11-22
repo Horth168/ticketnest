@@ -440,7 +440,7 @@ function SettingsPage() {
   return (
     <div className="max-w-3xl">
       <H title="Settings" sub="Secrets (bot tokens, API keys, passwords) are set as server environment variables and never shown here." />
-      <Tabs value={tab} onChange={setTab} options={[['fees', 'Fees'], ['payments', 'Payments'], ['telegram', 'Telegram'], ['site', 'Website'], ['currency', 'Currency'], ['system', 'System']]} />
+      <Tabs value={tab} onChange={setTab} options={[['fees', 'Fees'], ['protection', 'Buyer protection'], ['payments', 'Payments'], ['telegram', 'Telegram'], ['site', 'Website'], ['currency', 'Currency'], ['system', 'System']]} />
       <div className="card space-y-4 p-5 sm:p-6">
         {tab === 'fees' && <>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -452,6 +452,19 @@ function SettingsPage() {
             <Row k="TicketNest gross" v={usd2(Math.round(10000 * (s.fees.buyer_markup_bps + s.fees.seller_commission_bps) / 10000))} strong /></div>
           <p className="text-[12px] text-muted">Changes apply to new checkouts. Existing orders keep the fees they were created with.</p>
           <button className="btn-primary" onClick={() => put('fees', s.fees)}>Save fees</button>
+        </>}
+        {tab === 'protection' && s.protection && <>
+          <label className="flex items-start gap-3 rounded-2xl border border-line p-4 text-sm">
+            <input type="checkbox" className="mt-0.5" checked={s.protection.hold_until_after_event} onChange={(e) => setS({ ...s, protection: { ...s.protection, hold_until_after_event: e.target.checked } })} />
+            <span><b>Pay sellers only after the concert</b><span className="mt-0.5 block text-muted">Seller earnings stay pending until the hours below after the concert starts, then are released automatically. A buyer's problem report freezes them.</span></span>
+          </label>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Release payout (hours after start)"><input className="input" type="number" min="0" {...bind('protection', 'payout_hold_hours', true)} /></Field>
+            <Field label="Buyers can report until (hours after start)"><input className="input" type="number" min="0" {...bind('protection', 'report_window_hours', true)} /></Field>
+            <Field label="Price cap (% of face value)" hint="0 = no cap. e.g. 150 = at most 1.5× face value"><input className="input" type="number" min="0" {...bind('protection', 'price_cap_pct', true)} /></Field>
+          </div>
+          <p className="text-[12px] text-muted">Keep the report window at least as long as the payout hold, so a buyer can always report before the seller is paid. Existing listings above a new price cap stay on sale; the cap applies to new listings and edits.</p>
+          <button className="btn-primary" onClick={() => put('protection', s.protection)}>Save buyer protection</button>
         </>}
         {tab === 'payments' && <>
           <Field label="Your ABA merchant KHQR code" hint="Every order gets its own QR built from this code, with the exact amount and order number.">

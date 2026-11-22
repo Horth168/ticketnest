@@ -44,6 +44,12 @@ DEFAULTS: dict[str, dict] = {
     },
     "currency": {"primary": "USD", "khr_rate": 4100, "show_khr": True},
     "inventory": {"low_stock_threshold": 2},
+    "protection": {
+        "hold_until_after_event": True,  # seller earnings stay pending until after the concert
+        "payout_hold_hours": 48,         # ... this many hours after the concert starts
+        "report_window_hours": 48,       # buyers can report a problem until this long after the start
+        "price_cap_pct": 0,              # 0 = off; e.g. 150 = a listing may cost at most 150% of face value
+    },
 }
 
 PUBLIC_KEYS = ("site", "currency")
@@ -97,6 +103,7 @@ def public_settings(db: Session) -> dict:
                         "login_bot_id": (settings.TELEGRAM_BOT_TOKEN.split(":", 1)[0]
                                          if settings.TELEGRAM_BOT_TOKEN.split(":", 1)[0].isdigit() else "")}
     data["fees"] = {"seller_commission_bps": commission, "buyer_markup_bps": markup}
+    data["protection"] = get_setting(db, "protection")
     data["payments"] = {"khqr_enabled": bool(pay["khqr_enabled"] and pay["khqr_template"]),
                         "qr_expiry_minutes": pay["qr_expiry_minutes"]}
     from app.services import human

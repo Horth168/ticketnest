@@ -342,7 +342,7 @@ export function MyWallet() {
         </div>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        <Stat label={t('Pending delivery')} value={usd2(w.pending_cents)} hint={t('Released when the buyer gets the ticket')} />
+        <Stat label={t('Pending delivery')} value={usd2(w.pending_cents)} hint={t('Released after the concert, once the buyer has the ticket')} />
         <Stat label={t('In withdrawal')} value={usd2(w.held_cents)} />
         <Stat label={t('Paid out')} value={usd2(w.withdrawn_cents)} />
       </div>

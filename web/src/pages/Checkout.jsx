@@ -3,6 +3,7 @@ import { ArrowLeft, Check, Clock, Copy, Download, ExternalLink, FileText, Messag
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import KhqrCard from '../components/KhqrCard'
+import ProtectionPanel, { GuaranteeNote } from '../components/Protection'
 import { Countdown, Empty, ErrorNote, Field, Loading, OrderBadge, Row, Spinner } from '../components/ui'
 import { useApp, useBase, useLink } from '../context/App'
 import { api, apiUrl, openFile } from '../lib/api'
@@ -92,6 +93,7 @@ export default function Checkout() {
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[rgb(var(--accent))]" checked={f.terms} onChange={set('terms')} />
             <span className="text-muted">{t('I agree to the terms and refund policy, and understand this is a resale ticket delivered via Telegram after my payment is verified.')} <Link className="text-accent hover:underline" to="/policies/terms" target="_blank">{t('Terms')}</Link> · <Link className="text-accent hover:underline" to="/policies/refunds" target="_blank">{t('Refund policy')}</Link></span>
           </label>
+          <GuaranteeNote />
           <HumanCheck human={human} className="flex justify-center" />
           <ErrorNote error={error} />
           {!inTelegram() && (
@@ -177,6 +179,7 @@ export function OrderPage() {
               <Link to={link(`/concerts`)} className="btn-ghost mt-4">{t('Browse concerts')}</Link>
             </div>
           )}
+          <ProtectionPanel o={o} onChange={load} />
           <Timeline o={o} />
         </div>
         <aside className="card h-fit p-5 sm:p-6">
@@ -242,7 +245,8 @@ function PayPanel({ o, onChange, toast }) {
 }
 
 const LABEL = { created: 'Order placed', paid: 'Payment verified', preparing: 'Preparing ticket', awaiting_delivery: 'Awaiting delivery',
-  delivered: 'Ticket delivered', completed: 'Completed', cancelled: 'Cancelled', refunded: 'Refunded' }
+  delivered: 'Ticket delivered', completed: 'Completed', cancelled: 'Cancelled', refunded: 'Refunded',
+  issue_opened: 'Problem reported', issue_resolved: 'Report resolved', buyer_confirmed: 'I received my ticket', payout_released: 'Completed' }
 function Timeline({ o }) {
   const { t } = useT()
   return (

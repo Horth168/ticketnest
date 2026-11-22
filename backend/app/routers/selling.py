@@ -95,6 +95,7 @@ async def create_listing(request: Request,
         data, kind = await storage.read_upload(payout_qr, allow_pdf=False)
         qr_key = storage.save_private(data, kind, "payout-qr")
 
+    _check_price_cap(db, _price(price, "listing price"), _price(original_price, "original price"))
     listing = TicketListing(
         seller_id=user.id, concert_id=concert.id, category_id=cat.id,
         original_price_cents=_price(original_price, "original price"), price_cents=_price(price, "listing price"),
@@ -159,6 +160,16 @@ def seller_dashboard(user: User = Depends(get_current_user), db: Session = Depen
             "completed_withdrawals": wd.filter_by(status=WithdrawalStatus.paid).count()}
 
 
+def _check_price_cap(db: Session, price_cents: int, face_cents: int) -> None:
+    """Optional fair-price rule (Admin -> Settings -> Buyer protection)."""
+    from app.services.settings_store import get_setting
+    from app.utils import fmt_usd2
+    cap = int(get_setting(db, "protection").get("price_cap_pct") or 0)
+    if cap and price_cents > face_cents * cap // 100:
+        raise HTTPException(422, f"TicketNest keeps resale prices fair: your price can be at most {cap}% of the "
+                                 f"face value ({fmt_usd2(face_cents * cap // 100)} per ticket).")
+
+
 @router.patch("/listings/{listing_id}")
 def edit_listing(listing_id: int, body: ListingEditIn, user: User = Depends(get_current_user),
                  db: Session = Depends(get_db)):
@@ -171,6 +182,7 @@ def edit_listing(listing_id: int, body: ListingEditIn, user: User = Depends(get_
         l.price_cents = _price(str(body.price), "listing price")
     if body.original_price is not None:
         l.original_price_cents = _price(str(body.original_price), "original price")
+    _check_price_cap(db, l.price_cents, l.original_price_cents)
     if body.quantity is not None:
         if body.quantity < l.quantity_sold:
             raise HTTPException(400, f"{l.quantity_sold} ticket(s) are already sold")

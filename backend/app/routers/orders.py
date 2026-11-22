@@ -2,6 +2,8 @@
 
 import io
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -10,11 +12,14 @@ from app.config import settings
 from app.database import get_db
 from app.limiter import limiter
 from app.models import Order, OrderStatus, User
-from app.schemas import CheckoutIn
+from pydantic import Field
+
+from app.schemas import CheckoutIn, Clean
 from app.security import get_current_user
 from app.serializers import order_out
 from app.services import email as mail, invoice_pdf, orders as svc, payway, storage
 from app.services.settings_store import get_setting
+from app.utils import iso, utcnow
 
 from app.services.human import require_human
 
@@ -54,7 +59,7 @@ def my_orders(user: User = Depends(get_current_user), db: Session = Depends(get_
 @router.get("/{number}")
 def order_detail(number: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     order = _mine(db, user, number)
-    out = order_out(order, with_qr=True)
+    out = _with_protection(db, order)
     tg = get_setting(db, "telegram")
     out["delivery_contact"] = tg["delivery_username"]
     return out
@@ -83,6 +88,41 @@ def cancel(number: str, user: User = Depends(get_current_user), db: Session = De
     svc.cancel_by_buyer(db, order, user)
     db.commit()
     return order_out(order)
+
+
+class ReportIn(Clean):
+    reason: Literal["not_received", "invalid", "wrong", "other"]
+    details: str = Field(min_length=10, max_length=2000)
+
+
+@router.post("/{number}/report")
+@limiter.limit("5/hour")
+def report(request: Request, number: str, body: ReportIn, user: User = Depends(get_current_user),
+           db: Session = Depends(get_db)):
+    """Buyer protection: report a problem (freezes the seller's payout until TicketNest checks it)."""
+    order = _mine(db, user, number)
+    svc.report_problem(db, order, user, body.reason, body.details)
+    db.commit()
+    return _with_protection(db, order)
+
+
+@router.post("/{number}/received")
+def received(number: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    order = _mine(db, user, number)
+    svc.buyer_confirm(db, order, user)
+    db.commit()
+    return _with_protection(db, order)
+
+
+def _with_protection(db: Session, order: Order) -> dict:
+    out = order_out(order, with_qr=True)
+    deadline = svc.report_deadline(db, order)
+    out["report_deadline"] = iso(deadline)
+    out["can_report"] = (order.status in svc.OPEN_FOR_REPORT and order.issue_status != "open"
+                         and (deadline is None or utcnow() <= deadline))
+    out["can_confirm"] = order.status in (OrderStatus.paid, OrderStatus.preparing, OrderStatus.awaiting_delivery,
+                                          OrderStatus.delivered) and not order.buyer_confirmed_at
+    return out
 
 
 @router.get("/{number}/qr.png")

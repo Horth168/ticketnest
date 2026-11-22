@@ -140,6 +140,15 @@ export const KM = {
   'Telegram bot token': 'Telegram bot token', 'Admin alert group': 'ក្រុមជូនដំណឹងអ្នកគ្រប់គ្រង', 'Payment group': 'ក្រុមការទូទាត់', 'Bakong API': 'Bakong API',
   'Bakong ID': 'Bakong ID', 'Google sign-in': 'ចូលដោយ Google', 'Google client ID': 'Google client ID', 'Emails': 'អ៊ីមែល', 'All notifications': 'ការជូនដំណឹងទាំងអស់',
 
+  // buyer protection
+  'Buyer protection': 'ការការពារអ្នកទិញ', 'Buyer reported a problem': 'អ្នកទិញបានរាយការណ៍បញ្ហា', 'Dismiss report': 'បដិសេធរបាយការណ៍',
+  'Problem report resolved': 'បានដោះស្រាយរបាយការណ៍បញ្ហា', 'Seller payout': 'ការទូទាត់ឱ្យអ្នកលក់', 'Release payout now': 'ទូទាត់ឱ្យអ្នកលក់ឥឡូវ',
+  'Ticket not received': 'មិនបានទទួលសំបុត្រ', "Ticket didn't work / entry refused": 'សំបុត្រប្រើមិនបាន / មិនឱ្យចូល',
+  'Wrong seat, category or quantity': 'កៅអី ប្រភេទ ឬចំនួនខុស', 'Other problem': 'បញ្ហាផ្សេងទៀត',
+  "The seller's payout is frozen. Check with the buyer and seller, then either dismiss the report (the seller is paid on schedule) or record a refund (the seller's earnings are taken back).": 'ការទូទាត់ឱ្យអ្នកលក់ត្រូវបានបង្កក។ ពិនិត្យជាមួយអ្នកទិញ និងអ្នកលក់ រួចបដិសេធរបាយការណ៍ (អ្នកលក់ទទួលប្រាក់តាមកាលវិភាគ) ឬកត់ត្រាការសងប្រាក់ (ដកប្រាក់ចំណូលអ្នកលក់វិញ)។',
+  'Pay sellers only after the concert': 'ទូទាត់ឱ្យអ្នកលក់តែបន្ទាប់ពីការប្រគុំតន្ត្រី', 'Release payout (hours after start)': 'ទូទាត់ (ម៉ោងបន្ទាប់ពីចាប់ផ្តើម)',
+  'Buyers can report until (hours after start)': 'អ្នកទិញអាចរាយការណ៍រហូតដល់ (ម៉ោងបន្ទាប់ពីចាប់ផ្តើម)', 'Price cap (% of face value)': 'កំណត់តម្លៃខ្ពស់បំផុត (% នៃតម្លៃដើម)',
+  'Save buyer protection': 'រក្សាទុកការការពារអ្នកទិញ', "Dismiss the buyer's report": 'បដិសេធរបាយការណ៍របស់អ្នកទិញ', 'What you found (shown to the buyer)': 'អ្វីដែលអ្នករកឃើញ (បង្ហាញដល់អ្នកទិញ)',
   // audit
   'Every important action, with who did it.': 'រាល់សកម្មភាពសំខាន់ៗ និងអ្នកដែលបានធ្វើ។', 'Filter, e.g. payment, listing, withdrawal': 'ច្រោះ ឧ. payment, listing, withdrawal',
 }

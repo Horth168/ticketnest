@@ -94,6 +94,7 @@ def _expiry_loop() -> None:
     from app.services import alerts, backup, orders as svc, reports
     jobs = (("release expired checkouts", lambda db: svc.expire_due(db)),
             ("daily report", reports.maybe_send_daily),
+            ("release seller payouts", svc.release_due),
             ("daily backup", backup.maybe_run_daily))
     while True:
         time.sleep(60)

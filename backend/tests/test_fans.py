@@ -211,3 +211,111 @@ def test_public_pages_cached_and_cleared_on_changes(client, setup, monkeypatch):
     client.post(f"/api/admin/listings/{l['id']}/approve", headers=setup["admin"])
     assert client.get("/api/home").json()["recent_listings"][0]["id"] == l["id"] and len(calls) == 2
     cache.clear()
+
+
+def _paid_order(client, setup):
+    from conftest import payway_msg
+    from app.services import payway
+    l = create_listing(client, setup)
+    client.post(f"/api/admin/listings/{l['id']}/approve", headers=setup["admin"])
+    o = checkout(client, setup["buyer"], l["id"]).json()
+    with SessionLocal() as s:
+        assert payway.handle(s, payway_msg("115.00", f"7{o['id']:05d}11")) == "matched"
+    return o
+
+
+def _wallet(client, setup):
+    w = client.get("/api/account/wallet", headers=setup["seller"]).json()
+    return w["pending_cents"], w["available_cents"]
+
+
+def test_report_freezes_payout_until_admin_resolves(client, setup):
+    from datetime import timedelta
+    from app.models import Order
+    from app.services import orders as osvc
+    from app.utils import utcnow
+    o = _paid_order(client, setup)
+    n = o["order_number"]
+    client.post(f"/api/admin/orders/{o['id']}/deliver", headers=setup["admin"], data={"method": "telegram"})
+    mine = client.get(f"/api/orders/{n}", headers=setup["buyer"]).json()
+    assert mine["can_report"] and mine["report_deadline"]
+    assert client.post(f"/api/orders/{n}/report", headers=setup["buyer"], json={"reason": "invalid", "details": "short"}).status_code == 422
+    r = client.post(f"/api/orders/{n}/report", headers=setup["buyer"],
+                    json={"reason": "invalid", "details": "The QR code was rejected at the gate."})
+    assert r.status_code == 200 and r.json()["issue"]["status"] == "open" and not r.json()["can_report"]
+    assert any(m["kind"] == "order_issue" for m in TG_SENT)
+    assert client.post(f"/api/orders/{n}/report", headers=setup["buyer2"],
+                       json={"reason": "other", "details": "Not my order at all here"}).status_code in (403, 404)
+    with SessionLocal() as s:   # hold is over, but the report freezes the payout
+        row = s.query(Order).filter_by(order_number=n).one()
+        row.payout_release_at = utcnow() - timedelta(minutes=1)
+        s.commit()
+        assert osvc.release_due(s) == 0
+    assert _wallet(client, setup) == (8500, 0)
+    assert client.post(f"/api/admin/orders/{o['id']}/release-payout", headers=setup["admin"]).status_code == 409
+    r = client.post(f"/api/admin/orders/{o['id']}/issue/resolve", headers=setup["admin"], json={"note": "Checked with the venue: ticket valid"})
+    assert r.status_code == 200 and r.json()["issue"]["status"] == "resolved"
+    assert _wallet(client, setup) == (0, 8500)          # hold already over -> released straight away
+
+
+def test_refund_closes_report_and_reverses_pending(client, setup):
+    o = _paid_order(client, setup)
+    client.post(f"/api/orders/{o['order_number']}/report", headers=setup["buyer"],
+                json={"reason": "not_received", "details": "Nobody contacted me on Telegram yet."})
+    r = client.post(f"/api/admin/orders/{o['id']}/refund", headers=setup["admin"], json={"reason": "Ticket never sent", "restock": False})
+    assert r.status_code == 200 and r.json()["status"] == "refunded" and r.json()["issue"]["status"] == "resolved"
+    assert _wallet(client, setup) == (0, 0)
+
+
+def test_buyer_confirms_receipt_and_early_release(client, setup):
+    o = _paid_order(client, setup)
+    n = o["order_number"]
+    r = client.post(f"/api/orders/{n}/received", headers=setup["buyer"])
+    assert r.status_code == 200 and r.json()["status"] == "delivered" and r.json()["buyer_confirmed_at"]
+    assert not r.json()["can_confirm"] and any(m["kind"] == "buyer_confirmed" for m in TG_SENT)
+    assert _wallet(client, setup) == (8500, 0)          # still held until after the concert
+    assert client.post(f"/api/admin/orders/{o['id']}/release-payout", headers=setup["buyer"]).status_code == 403
+    r = client.post(f"/api/admin/orders/{o['id']}/release-payout", headers=setup["admin"])
+    assert r.status_code == 200 and r.json()["status"] == "completed"
+    assert _wallet(client, setup) == (0, 8500)
+
+
+def test_report_window_closes_after_event(client, setup):
+    from datetime import timedelta
+    from app.models import OrderItem
+    from app.utils import utcnow
+    o = _paid_order(client, setup)
+    with SessionLocal() as s:
+        it = s.query(OrderItem).filter_by(order_id=o["id"]).one()
+        it.concert_starts_at = utcnow() - timedelta(hours=49)
+        s.commit()
+    r = client.post(f"/api/orders/{o['order_number']}/report", headers=setup["buyer"],
+                    json={"reason": "other", "details": "Something went wrong at the show."})
+    assert r.status_code == 400 and "passed" in r.json()["detail"]
+
+
+def test_price_cap_and_face_value_badge(client, setup):
+    from conftest import png_bytes
+    assert client.put("/api/admin/settings/protection", headers=setup["admin"], json={"price_cap_pct": 50}).status_code == 422
+    assert client.put("/api/admin/settings/protection", headers=setup["admin"], json={"price_cap_pct": 110}).status_code == 200
+    assert client.get("/api/settings/public").json()["protection"]["price_cap_pct"] == 110
+    c = setup["concert"]
+    base = {"concert_id": c["id"], "category_id": c["categories"][0]["id"], "original_price": "90", "quantity": 1,
+            "contact_name": "Sok", "contact_telegram": "sok_seller", "payout_method": "ABA",
+            "payout_account_name": "SOK", "payout_account_number": "0001112", "confirm_owner": "true"}
+    files = lambda: [("files", ("t.png", png_bytes(), "image/png")), ("receipts", ("r.png", png_bytes(), "image/png"))]
+    r = client.post("/api/sell/listings", headers=setup["seller"], data={**base, "price": "100"}, files=files())
+    assert r.status_code == 422 and "110%" in r.json()["detail"]            # 100 > 99 (110% of 90)
+    r = client.post("/api/sell/listings", headers=setup["seller"], data={**base, "price": "85"}, files=files())
+    assert r.status_code == 201
+    client.post(f"/api/admin/listings/{r.json()['id']}/approve", headers=setup["admin"])
+    pub = client.get(f"/api/concerts/{c['slug']}").json()["listings"]
+    assert pub[0]["face_value_or_less"] is True
+
+
+def test_sitemap_lists_public_pages_only(client, setup):
+    with SessionLocal() as s:
+        demo.seed_once(s)
+    xml = client.get("/sitemap.xml").text
+    assert f"/concerts/{setup['concert']['slug']}" in xml and "/guarantee" in xml
+    assert demo.SLUG not in xml and "/admin" not in xml

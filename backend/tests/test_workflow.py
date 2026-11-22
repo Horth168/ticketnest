@@ -3,11 +3,14 @@
 register -> list ticket -> admin approves -> buyer checks out -> KHQR -> PayWay notification ->
 PAID -> invoice + email -> admin alert -> delivered -> seller wallet -> withdrawal.
 """
+from datetime import timedelta
+
 from conftest import TG_SENT, checkout, create_listing, login, payway_msg
 
 from app.database import SessionLocal
 from app.models import Order, PaymentNotification, SellerWallet, TicketListing, User
 from app.services import email as mail, payway
+from app.utils import utcnow
 
 
 def test_complete_workflow(client, setup):
@@ -96,8 +99,21 @@ def test_complete_workflow(client, setup):
     assert any(e["kind"] == "delivered" for e in mail.SYNC_FOR_TESTS)
     mine = client.get(f"/api/orders/{order['order_number']}", headers=setup["buyer"]).json()
     assert mine["status"] == "delivered" and mine["delivery"]["method"] == "telegram"
+    # buyer protection: the earnings stay pending until after the concert
+    wallet = client.get("/api/account/wallet", headers=setup["seller"]).json()
+    assert (wallet["pending_cents"], wallet["available_cents"]) == (8500, 0)
+    with SessionLocal() as s:
+        from app.models import Order as O
+        from app.services import orders as osvc
+        row = s.query(O).filter_by(order_number=order["order_number"]).one()
+        assert row.payout_release_at is not None and row.payout_released_at is None
+        assert osvc.release_due(s) == 0                       # concert hasn't happened yet
+        row.payout_release_at = utcnow() - timedelta(minutes=1)   # ... 48 h after the concert
+        s.commit()
+        assert osvc.release_due(s) == 1
     wallet = client.get("/api/account/wallet", headers=setup["seller"]).json()
     assert (wallet["pending_cents"], wallet["available_cents"]) == (0, 8500)
+    assert client.get(f"/api/orders/{order['order_number']}", headers=setup["buyer"]).json()["status"] == "completed"
 
     # seller dashboard numbers
     dash = client.get("/api/sell/dashboard", headers=setup["seller"]).json()

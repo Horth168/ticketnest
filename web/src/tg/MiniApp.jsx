@@ -16,6 +16,7 @@ import Concert, { Artist } from '../pages/Concert'
 import Explore, { Artists } from '../pages/Explore'
 import Home from '../pages/Home'
 import TicketsPage from '../pages/Tickets'
+import Guarantee from '../pages/Guarantee'
 import { TabBar } from '../components/Layout'
 import AccountMenu from '../components/AccountMenu'
 import { HowItWorks, Policy, Support } from '../pages/Info'
@@ -95,6 +96,7 @@ export default function MiniApp() {
           <Route path="artists" element={<Artists />} />
           <Route path="tickets" element={<RequireAuth><TicketsPage /></RequireAuth>} />
           <Route path="how-it-works" element={<HowItWorks />} />
+          <Route path="guarantee" element={<Guarantee />} />
           <Route path="search" element={<TgSearch />} />
           <Route path="concerts/:slug" element={<Concert />} />
           <Route path="artists/:slug" element={<Artist />} />

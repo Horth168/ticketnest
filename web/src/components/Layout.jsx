@@ -200,7 +200,7 @@ function Footer() {
   const { t } = useT()
   const support = settings?.telegram?.support_username
   const links = [['/concerts', t('Concerts')], ['/sell', t('Sell')], ['/how-it-works', t('How it works')],
-    ['/policies/refunds', t('Refunds')], ['/policies/terms', t('Terms')], ['/policies/privacy', t('Privacy')]]
+    ['/guarantee', t('Guarantee')], ['/policies/refunds', t('Refunds')], ['/policies/terms', t('Terms')], ['/policies/privacy', t('Privacy')]]
   return (
     <footer className="mt-24 border-t border-line">
       <div className="page flex flex-col gap-5 py-8 md:flex-row md:items-center md:justify-between">

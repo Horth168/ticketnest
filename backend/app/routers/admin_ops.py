@@ -331,6 +331,29 @@ def refund_order(order_id: int, body: RefundIn, db: Session = Depends(get_db), u
     return order_out(o, admin=True)
 
 
+class ResolveIn(BaseModel):
+    note: str = Field("", max_length=300)
+
+
+@router.post("/orders/{order_id}/issue/resolve")
+def resolve_issue(order_id: int, body: ResolveIn, db: Session = Depends(get_db), user: User = Depends(require_staff)):
+    """Buyer protection: the report was checked and the seller is not at fault (payout continues on schedule).
+    To give the buyer their money back instead, use Record refund."""
+    o = _order(db, order_id)
+    svc.resolve_problem(db, o, user, clean_text(body.note, 300))
+    db.commit()
+    return order_out(o, admin=True)
+
+
+@router.post("/orders/{order_id}/release-payout")
+def release_payout_now(order_id: int, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """Pay the seller before the usual hold ends (e.g. trusted seller, buyer confirmed long ago)."""
+    o = _order(db, order_id)
+    svc.release_payout(db, o, user, early=True)
+    db.commit()
+    return order_out(o, admin=True)
+
+
 class ManualPayIn(BaseModel):
     trx_id: str = Field(min_length=4, max_length=40)
 
@@ -557,6 +580,16 @@ def put_settings(key: str, body: dict, db: Session = Depends(get_db), user: User
                     body[k] = clean_tg_username(body[k])
                 except ValueError as e:
                     raise HTTPException(422, str(e)) from e
+    if key == "protection":
+        for k, lo, hi in (("payout_hold_hours", 0, 720), ("report_window_hours", 0, 720), ("price_cap_pct", 0, 1000)):
+            if k in body:
+                body[k] = int(body[k])
+                if not lo <= body[k] <= hi:
+                    raise HTTPException(422, f"{k.replace('_', ' ')} must be between {lo} and {hi}")
+        if body.get("price_cap_pct") and body["price_cap_pct"] < 100:
+            raise HTTPException(422, "A price cap below 100% would stop sellers asking face value")
+        if "hold_until_after_event" in body:
+            body["hold_until_after_event"] = bool(body["hold_until_after_event"])
     if key == "currency" and "khr_rate" in body and not 1000 <= int(body["khr_rate"]) <= 10000:
         raise HTTPException(422, "Exchange rate looks wrong")
     try:

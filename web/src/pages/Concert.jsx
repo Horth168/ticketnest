@@ -5,6 +5,8 @@ import { ArtistImage, ConcertCard, isLogo } from '../components/cards'
 import { Reveal } from '../components/Motion'
 import { useT } from '../i18n'
 import SeatMap, { CAT_COLORS } from '../components/SeatMap'
+import { GuaranteeNote } from '../components/Protection'
+import { concertJsonLd, usePageMeta } from '../lib/seo'
 import { Badge, Empty, Loading, Poster } from '../components/ui'
 import { useApp, useLink } from '../context/App'
 import { api, apiUrl } from '../lib/api'
@@ -18,6 +20,11 @@ export default function Concert() {
   const link = useLink()
   const { t } = useT()
   useEffect(() => { setC(null); api(`/api/concerts/${slug}`).then(setC).catch(setError) }, [slug])
+  usePageMeta(c && !c.preview ? {
+    title: `${c.title} tickets · ${c.city}`,
+    description: `${c.artist.name} live at ${c.venue}, ${c.city} on ${dateLong(c.starts_at)}. ${c.tickets_available ? `${c.tickets_available} verified resale tickets` : 'Get notified when tickets appear'} on TicketNest, paid with KHQR.`,
+    image: c.poster_url, data: concertJsonLd(c),
+  } : {})
   if (error) return <div className="page pt-10"><Empty icon={Ticket} title={t('Concert not found')}>{t('It may have been removed or the link is wrong.')}</Empty></div>
   if (!c) return <Loading />
   const listings = c.listings.filter((l) => !cat || l.category_id === cat)
@@ -102,6 +109,7 @@ export default function Concert() {
           {c.description && <><h2 className="mt-12 text-2xl font-bold">{t('About this concert')}</h2><p className="mt-3 whitespace-pre-line leading-relaxed text-muted">{c.description}</p></>}
         </div>
         <aside className="space-y-4">
+          <GuaranteeNote />
           <DeliveryInfo c={c} />
           <div className="card p-5">
             <p className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-5 w-5 text-good" />{t('Reviewed listings')}</p>
@@ -190,6 +198,7 @@ export function ListingRow({ l, color = null, preview = false }) {
         <div className="min-w-0">
           <p className="font-semibold">{l.category}{l.seat_info && <span className="font-normal text-muted"> · {l.seat_info}</span>}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted">{t(TICKET_TYPES[l.ticket_type])} · {t(l.seller_label)}
+            {l.face_value_or_less && <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11.5px] font-semibold text-accent">{t('Face value or less')}</span>}
             {l.seller_sales > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-good/10 px-2 py-0.5 text-[11.5px] font-semibold text-good"><BadgeCheck className="h-3.5 w-3.5" />{t('{n} sold', { n: l.seller_sales })}</span>}</p>
           {l.notes && <p className="mt-1 line-clamp-2 text-[13px] text-muted">{l.notes}</p>}
           <p className="mt-1 text-[12px] text-muted">{t('Seller price {price} + {pct} fee', { price: usd(l.price_cents), pct: pct(settings?.fees?.buyer_markup_bps ?? 1500) })}</p>
@@ -224,6 +233,7 @@ export function Artist() {
   const { t } = useT()
   const [a, setA] = useState(null)
   useEffect(() => { api(`/api/artists/${slug}`).then(setA).catch(() => setA(false)) }, [slug])
+  usePageMeta(a ? { title: `${a.name} concert tickets`, description: `Buy and sell ${a.name} concert tickets safely on TicketNest. Verified listings, KHQR payment, delivery through Telegram.`, image: a.image_url } : {})
   if (a === false) return <div className="page pt-10"><Empty title={t('Artist not found')} /></div>
   if (!a) return <Loading />
   return (

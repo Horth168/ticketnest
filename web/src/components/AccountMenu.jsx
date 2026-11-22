@@ -1,6 +1,6 @@
 // The account home, shared by the website (/account) and the Telegram Mini App (/tg/profile):
 // profile card, language, then grouped menus (Activity · Account · Help) like a native app's settings.
-import { ChevronRight, FileText, LifeBuoy, LogOut, MessageCircle, RotateCcw, Shield, ShieldCheck, Sparkles, Tag, Ticket, UserCog, Wallet } from 'lucide-react'
+import { BadgeCheck, ChevronRight, FileText, LifeBuoy, LogOut, MessageCircle, RotateCcw, Shield, ShieldCheck, Sparkles, Tag, Ticket, UserCog, Wallet } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp, useLink } from '../context/App'
 import { LANGS, useT } from '../i18n'
@@ -55,6 +55,7 @@ export default function AccountMenu() {
     ...(staff ? [['/admin', Shield, t('Admin dashboard'), 'bg-[#F59E0B]', '']] : []),
   ]
   const help = [
+    [link('/guarantee'), BadgeCheck, t('TicketNest Guarantee'), 'bg-[#8B5CF6]', ''],
     [link('/how-it-works'), Sparkles, t('How it works'), 'bg-[#06B6D4]', ''],
     [link('/policies/refunds'), RotateCcw, t('Refund policy'), 'bg-[#F43F5E]', ''],
     [link('/policies/authenticity'), ShieldCheck, t('Ticket authenticity'), 'bg-[#22C55E]', ''],

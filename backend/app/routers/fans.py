@@ -263,3 +263,26 @@ def download_backup(name: str, db: Session = Depends(get_db), user: User = Depen
     db.commit()
     return Response(data, media_type="application/gzip",
                     headers={"Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store"})
+
+
+# ---------------------------------------------------------------- Google: sitemap of public pages
+@router.get("/sitemap.xml", include_in_schema=False)
+def sitemap(db: Session = Depends(get_db)):
+    from app.models import Artist
+    from app.routers.catalog import _live_concerts
+    from app.utils import utcnow
+    base = settings.SITE_URL.rstrip("/")
+    urls = [(f"{base}/", "daily", "1.0"), (f"{base}/concerts", "daily", "0.9"), (f"{base}/artists", "weekly", "0.7"),
+            (f"{base}/how-it-works", "monthly", "0.5"), (f"{base}/guarantee", "monthly", "0.6")]
+    for slug in ("refunds", "authenticity", "terms", "privacy"):
+        urls.append((f"{base}/policies/{slug}", "monthly", "0.3"))
+    for c in _live_concerts(db).order_by(Concert.starts_at).limit(2000).all():
+        if not c.is_demo:
+            urls.append((f"{base}/concerts/{c.slug}", "daily", "0.8"))
+    for a in db.query(Artist).filter(Artist.is_active.is_(True)).all():
+        urls.append((f"{base}/artists/{a.slug}", "weekly", "0.6"))
+    today = utcnow().date().isoformat()
+    body = "".join(f"<url><loc>{escape(u)}</loc><lastmod>{today}</lastmod><changefreq>{f}</changefreq>"
+                   f"<priority>{p}</priority></url>" for u, f, p in urls)
+    xml = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{body}</urlset>'
+    return Response(xml, media_type="application/xml", headers={"Cache-Control": "public, max-age=3600"})

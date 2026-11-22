@@ -10,6 +10,7 @@ import ReviewsSection from '../components/Reviews'
 import { Empty, ErrorNote } from '../components/ui'
 import { useApp, useLink } from '../context/App'
 import { inTelegram } from '../lib/telegram'
+import { usePageMeta } from '../lib/seo'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
 import { dateShort, usd } from '../lib/format'
@@ -23,6 +24,7 @@ export function useHome() {
 
 export default function Home() {
   const link = useLink()
+  usePageMeta({})
   const { data, error } = useHome()
   const { settings } = useApp()
   const { t } = useT()

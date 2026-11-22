@@ -167,6 +167,8 @@ def customer_order_update(db: Session, order: Order, kind: str) -> None:
         "cancelled": f"Your order {e(order.order_number)} was cancelled. {e(order.cancel_reason)}",
         "refunded": f"💸 Your order {e(order.order_number)} was refunded. {e(order.cancel_reason)}",
         "expired": f"⌛ The payment time for {e(order.order_number)} ran out, so the tickets were released. You can check out again.",
+        "issue_resolved": (f"✅ We checked your report on {e(order.order_number)}: {e(order.issue_resolution)}\n"
+                           "Message us if you still need help."),
     }
     if kind in texts:
         to_user(db, order.buyer, texts[kind], kind=f"order_{kind}", buttons=_support_button(db) if kind == "paid" else None)
@@ -208,3 +210,30 @@ def concert_alerts(db: Session, listing: TicketListing) -> int:
         a.last_notified_at = now
         n += 1
     return n
+
+
+# ---------------------------------------------------------------- buyer protection
+def order_issue(db: Session, order: Order) -> None:
+    from app.services.orders import REPORT_REASONS
+    it = order.items[0]
+    tg.queue_admin(db, f"🚩 <b>{_site(db)} — BUYER REPORTED A PROBLEM</b>\nOrder: <b>{e(order.order_number)}</b>\n"
+                       f"{e(it.concert_title)} · {e(it.category_name)} × {it.quantity}\n"
+                       f"Reason: <b>{e(REPORT_REASONS.get(order.issue_reason, order.issue_reason))}</b>\n"
+                       f"“{e(order.issue_details[:600])}”\nBuyer: {e(order.contact_name)} · "
+                       f"{e('@' + order.contact_telegram if order.contact_telegram else '-')}\n\n"
+                       "The seller's payout is frozen until you dismiss the report or refund the buyer."
+                   + _admin_link(f"/orders/{order.id}"), kind="order_issue", buttons=order_buttons(order.id))
+
+
+def buyer_confirmed(db: Session, order: Order) -> None:
+    tg.queue_admin(db, f"👍 <b>{_site(db)} — BUYER CONFIRMED RECEIPT</b>\nOrder: {e(order.order_number)} · "
+                       f"{e(order.items[0].concert_title)}", kind="buyer_confirmed")
+
+
+def seller_payout_released(db: Session, order: Order) -> None:
+    from app.models import User
+    from app.services.wallet import _sellers
+    for seller_id, amount in _sellers(order).items():
+        to_user(db, db.get(User, seller_id), f"💰 Your earnings of <b>{fmt_usd2(amount)}</b> for {e(order.order_number)} "
+                                              "are now available. You can request a withdrawal from your wallet.",
+                kind="payout_released")

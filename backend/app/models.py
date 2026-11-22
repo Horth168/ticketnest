@@ -298,6 +298,17 @@ class Order(TS, Base):
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancel_reason: Mapped[str] = mapped_column(String(300), default="", nullable=False)
     admin_note: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    # buyer protection: the seller's earnings stay pending until after the concert, a buyer can report a
+    # problem until then (which freezes the payout), and can confirm they received the ticket
+    payout_release_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    payout_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    buyer_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    issue_status: Mapped[str] = mapped_column(String(20), default="", server_default="", nullable=False)  # "" | open | resolved
+    issue_reason: Mapped[str] = mapped_column(String(40), default="", server_default="", nullable=False)
+    issue_details: Mapped[str] = mapped_column(Text, default="", server_default="", nullable=False)
+    issue_opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    issue_resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    issue_resolution: Mapped[str] = mapped_column(String(300), default="", server_default="", nullable=False)
 
     buyer: Mapped[User] = relationship()
     items: Mapped[list[OrderItem]] = relationship(back_populates="order", cascade="all, delete-orphan")

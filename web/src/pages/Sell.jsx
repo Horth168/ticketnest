@@ -41,7 +41,7 @@ function FileDrop({ icon: Icon, title, hint, files, onAdd, onRemove, accept = 'i
 }
 
 export default function Sell() {
-  const { user, toast } = useApp()
+  const { user, toast, settings } = useApp()
   const { t } = useT()
   const nav = useNavigate()
   const link = useLink()
@@ -69,9 +69,11 @@ export default function Sell() {
 
   const priceHigh = Number(f.price) > 0 && Number(f.original_price) > 0 && Number(f.price) > Number(f.original_price) * 3
   const human = useHuman()
+  const cap = Number(settings?.protection?.price_cap_pct || 0)
+  const overCap = !!(cap && Number(f.price) > 0 && Number(f.original_price) > 0 && Number(f.price) > Number(f.original_price) * cap / 100 + 1e-9)
   const ok = [
     !!concert, !!f.category_id,
-    Number(f.original_price) >= 1 && Number(f.price) >= 1 && f.quantity >= 1 && f.quantity <= 20,
+    Number(f.original_price) >= 1 && Number(f.price) >= 1 && f.quantity >= 1 && f.quantity <= 20 && !overCap,
     f.files.length >= 1 && f.receipts.length >= 1,
     f.contact_name.trim().length >= 2 && f.contact_telegram.replace('@', '').trim().length >= 4 && f.payout_account_name.trim().length >= 2 && f.payout_account_number.trim().length >= 4,
     f.confirm_owner,
@@ -142,7 +144,9 @@ export default function Sell() {
           <div className="card space-y-4 p-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t('Original ticket price (USD)')} hint={t('What you paid per ticket — you will prove it with the receipt')}><input className="input" inputMode="decimal" value={f.original_price} onChange={(e) => set('original_price', e.target.value)} placeholder="100" /></Field>
-              <Field label={t('Your listing price (USD)')} hint={t('Per ticket')}><input className="input" inputMode="decimal" value={f.price} onChange={(e) => set('price', e.target.value)} placeholder="100" /></Field>
+              <Field label={t('Your listing price (USD)')} hint={cap ? t('Per ticket · at most {pct}% of the original price', { pct: cap }) : t('Per ticket')}
+                error={overCap ? t('Too high: the most you can ask is ${max}', { max: (Number(f.original_price) * cap / 100).toFixed(2) }) : undefined}>
+                <input className="input" inputMode="decimal" value={f.price} onChange={(e) => set('price', e.target.value)} placeholder="100" /></Field>
               <Field label={t('Quantity')}><input className="input" type="number" min={1} max={20} value={f.quantity} onChange={(e) => set('quantity', Math.max(1, Math.min(20, Number(e.target.value) || 1)))} /></Field>
               <Field label={t('Ticket type')}><select className="input" value={f.ticket_type} onChange={(e) => set('ticket_type', e.target.value)}>{Object.entries(TICKET_TYPES).map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}</select></Field>
             </div>

@@ -28,6 +28,8 @@ from app.models import (PUBLIC_LISTING, ConcertStatus, InventoryReservation, Inv
 from app.services import audit, inventory, khqr, notify, wallet
 from app.services.pricing import quote_for
 from app.services.settings_store import get_setting
+from datetime import timedelta
+
 from app.utils import as_aware, usd_to_khr, utcnow
 
 log = logging.getLogger("ticketnest.orders")
@@ -278,6 +280,9 @@ def refund(db: Session, order: Order, admin: User, reason: str, restock: bool) -
     if order.status not in REFUNDABLE:
         raise HTTPException(400, f"A {order.status.value} order can't be refunded")
     wallet.reverse(db, order, admin)          # raises if the seller already withdrew the money
+    if order.issue_status == "open":
+        order.issue_status, order.issue_resolved_at = "resolved", utcnow()
+        order.issue_resolution = f"Refunded: {reason}"[:300]
     if restock:
         for it in order.items:
             inventory.restock_sold(db, it.listing_id, it.quantity)
@@ -310,8 +315,9 @@ def set_status(db: Session, order: Order, new: OrderStatus, admin: User | None, 
 
 
 def deliver(db: Session, order: Order, admin: User | None, *, method: str = "telegram", reference: str = "",
-            file: tuple[str, str, str] | None = None, label: str = "") -> TicketDelivery:
-    """Admin sent the ticket by hand (Telegram) and records it. Releases the seller's earnings."""
+            file: tuple[str, str, str] | None = None, label: str = "", notify_buyer: bool = True) -> TicketDelivery:
+    """Admin sent the ticket by hand (Telegram) and records it. The seller's earnings are scheduled for
+    release after the concert (buyer protection), or released now if the concert is already over."""
     if order.status not in (S.paid, S.preparing, S.awaiting_delivery):
         raise HTTPException(400, f"A {order.status.value} order can't be marked delivered")
     d = order.delivery or TicketDelivery(order_id=order.id)
@@ -326,13 +332,127 @@ def deliver(db: Session, order: Order, admin: User | None, *, method: str = "tel
     order.delivered_at = utcnow()
     who = admin.full_name if admin else label
     event(order, "delivered", f"Delivered via {d.method} by {who}" + (f" · {reference}" if reference else ""), admin)
-    wallet.release(db, order, admin)
+    schedule_payout(db, order, admin, label=label)
     audit.log(db, "order.deliver", "order", order.id, actor=admin, label=label, data={"method": d.method})
-    notify.customer_order_update(db, order, "delivered")
-    from app.services import email as mail
-    mail.send_delivered(order)
+    if notify_buyer:
+        notify.customer_order_update(db, order, "delivered")
+        from app.services import email as mail
+        mail.send_delivered(order)
     db.flush()
     return d
+
+
+# ---------------------------------------------------------------- buyer protection
+REPORT_REASONS = {
+    "not_received": "Ticket not received",
+    "invalid": "Ticket didn't work / entry refused",
+    "wrong": "Wrong seat, category or quantity",
+    "other": "Other problem",
+}
+OPEN_FOR_REPORT = (S.paid, S.preparing, S.awaiting_delivery, S.delivered, S.completed)
+
+
+def event_start(order: Order):
+    starts = [as_aware(it.concert_starts_at) for it in order.items if it.concert_starts_at]
+    return min(starts) if starts else None
+
+
+def payout_due_at(db: Session, order: Order):
+    cfg = get_setting(db, "protection")
+    start = event_start(order)
+    if not cfg.get("hold_until_after_event", True) or not start:
+        return utcnow()
+    return start + timedelta(hours=int(cfg.get("payout_hold_hours", 48)))
+
+
+def report_deadline(db: Session, order: Order):
+    start = event_start(order)
+    if not start:
+        return None
+    return start + timedelta(hours=int(get_setting(db, "protection").get("report_window_hours", 48)))
+
+
+def schedule_payout(db: Session, order: Order, actor: User | None = None, label: str = "") -> None:
+    """Called when the ticket is delivered: release now if the hold is already over, else at the due time."""
+    due = payout_due_at(db, order)
+    order.payout_release_at = due
+    if due <= utcnow() and order.issue_status != "open":
+        release_payout(db, order, actor, label=label)
+
+
+def release_payout(db: Session, order: Order, actor: User | None = None, label: str = "", early: bool = False) -> None:
+    if order.payout_released_at:
+        return
+    if order.issue_status == "open":
+        raise HTTPException(409, "The buyer reported a problem with this order. Resolve it first.")
+    if order.status not in (S.delivered, S.completed):
+        raise HTTPException(400, "Only delivered orders can be paid out")
+    wallet.release(db, order, actor, note=f"{order.order_number} released" + (" early by admin" if early else " after the event"))
+    order.payout_released_at = utcnow()
+    if order.status == S.delivered:
+        order.status, order.completed_at = S.completed, utcnow()
+    event(order, "payout_released", "Seller earnings released" + (" early by admin" if early else ""), actor)
+    audit.log(db, "order.payout_release", "order", order.id, actor=actor, label=label, data={"early": early})
+    notify.seller_payout_released(db, order)
+
+
+def release_due(db: Session) -> int:
+    """Background job: release every delivered order whose hold is over and has no open problem report."""
+    rows = (db.query(Order).filter(Order.status.in_([S.delivered, S.completed]), Order.payout_released_at.is_(None),
+                                   Order.payout_release_at.isnot(None), Order.payout_release_at <= utcnow(),
+                                   Order.issue_status != "open").limit(100).all())
+    for o in rows:
+        try:
+            release_payout(db, o, None, label="system")
+        except HTTPException as e:
+            log.warning("Payout for %s not released: %s", o.order_number, e.detail)
+    if rows:
+        db.commit()
+    return len(rows)
+
+
+def report_problem(db: Session, order: Order, user: User, reason: str, details: str) -> None:
+    if order.status not in OPEN_FOR_REPORT:
+        raise HTTPException(400, "This order can't be reported")
+    if order.issue_status == "open":
+        raise HTTPException(409, "You already reported a problem. Our team is looking into it.")
+    deadline = report_deadline(db, order)
+    if deadline and utcnow() > deadline:
+        raise HTTPException(400, "The time to report a problem for this concert has passed. Please contact support.")
+    order.issue_status, order.issue_reason = "open", reason
+    order.issue_details, order.issue_opened_at = details[:2000], utcnow()
+    order.issue_resolved_at, order.issue_resolution = None, ""
+    event(order, "issue_opened", REPORT_REASONS.get(reason, reason), user)
+    audit.log(db, "order.issue_open", "order", order.id, actor=user, data={"reason": reason})
+    notify.order_issue(db, order)
+
+
+def resolve_problem(db: Session, order: Order, admin: User, note: str) -> None:
+    """Admin checked the report and the seller is not at fault: the payout goes ahead on schedule.
+    (To refund instead, use the refund action, which also closes the report.)"""
+    if order.issue_status != "open":
+        raise HTTPException(400, "There is no open report on this order")
+    order.issue_status, order.issue_resolved_at = "resolved", utcnow()
+    order.issue_resolution = (note or "Checked by TicketNest: no problem found")[:300]
+    event(order, "issue_resolved", order.issue_resolution, admin)
+    audit.log(db, "order.issue_resolve", "order", order.id, actor=admin, data={"note": note})
+    notify.customer_order_update(db, order, "issue_resolved")
+    if order.payout_release_at and as_aware(order.payout_release_at) <= utcnow() and order.status in (S.delivered, S.completed):
+        release_payout(db, order, admin)
+
+
+def buyer_confirm(db: Session, order: Order, user: User) -> None:
+    """The buyer tapped "I received my ticket"."""
+    if order.buyer_confirmed_at:
+        return
+    if order.status in (S.paid, S.preparing, S.awaiting_delivery):
+        deliver(db, order, None, method="buyer_confirmed", label=f"buyer:{user.id}", notify_buyer=False)
+    elif order.status not in (S.delivered, S.completed):
+        raise HTTPException(400, "This order can't be confirmed")
+    order.buyer_confirmed_at = utcnow()
+    event(order, "buyer_confirmed", "Buyer confirmed they received the ticket", user)
+    audit.log(db, "order.buyer_confirm", "order", order.id, actor=user)
+    notify.buyer_confirmed(db, order)
 
 
 def reservation_seconds_left(order: Order) -> int:
@@ -342,4 +462,5 @@ def reservation_seconds_left(order: Order) -> int:
 
 
 __all__ = ["create_order", "mark_paid", "AlreadyUsed", "expire_due", "refund", "deliver", "set_status",
+           "release_due", "release_payout", "report_problem", "resolve_problem", "buyer_confirm",
            "cancel_by_buyer", "cancel_by_admin", "ReservationStatus"]
