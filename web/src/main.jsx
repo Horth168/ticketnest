@@ -1,0 +1,64 @@
+import './index.css'
+import { lazy, StrictMode, Suspense } from 'react'
+import { createRoot } from 'react-dom/client'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import Layout from './components/Layout'
+import { Loading } from './components/ui'
+import { AppProvider } from './context/App'
+import Account, { MyInvoices, MyListings, MyOrders, MyWallet, Profile } from './pages/account/Account'
+import { Forgot, Login, Register, Reset } from './pages/Auth'
+import Checkout, { OrderPage, RequireAuth } from './pages/Checkout'
+import Concert, { Artist } from './pages/Concert'
+import Explore, { Artists } from './pages/Explore'
+import Home from './pages/Home'
+import { HowItWorks, NotFound, Policy, Support } from './pages/Info'
+import Sell from './pages/Sell'
+
+const AdminApp = lazy(() => import('./pages/admin/AdminApp'))
+const MiniApp = lazy(() => import('./tg/MiniApp'))
+
+// Opened from the bot's Mini App button at the site root? Go to the Mini App shell.
+if (window.Telegram?.WebApp?.initData && !location.pathname.startsWith('/tg')) {
+  history.replaceState(null, '', '/tg' + (location.pathname === '/' ? '' : location.pathname))
+}
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <BrowserRouter>
+      <AppProvider>
+        <Suspense fallback={<Loading />}>
+          <Routes>
+            <Route path="/admin/*" element={<AdminApp />} />
+            <Route path="/tg/*" element={<MiniApp />} />
+            <Route element={<Layout />}>
+              <Route index element={<Home />} />
+              <Route path="concerts" element={<Explore />} />
+              <Route path="concerts/:slug" element={<Concert />} />
+              <Route path="artists" element={<Artists />} />
+              <Route path="artists/:slug" element={<Artist />} />
+              <Route path="checkout/:listingId" element={<RequireAuth><Checkout /></RequireAuth>} />
+              <Route path="orders/:number" element={<RequireAuth><OrderPage /></RequireAuth>} />
+              <Route path="sell" element={<RequireAuth><Sell /></RequireAuth>} />
+              <Route path="account" element={<RequireAuth><Account /></RequireAuth>}>
+                <Route index element={<Profile />} />
+                <Route path="orders" element={<MyOrders />} />
+                <Route path="listings" element={<MyListings />} />
+                <Route path="wallet" element={<MyWallet />} />
+                <Route path="invoices" element={<MyInvoices />} />
+              </Route>
+              <Route path="login" element={<Login />} />
+              <Route path="register" element={<Register />} />
+              <Route path="forgot-password" element={<Forgot />} />
+              <Route path="reset-password" element={<Reset />} />
+              <Route path="how-it-works" element={<HowItWorks />} />
+              <Route path="policies/:slug" element={<Policy />} />
+              <Route path="support" element={<Support />} />
+              <Route path="sell-tickets" element={<Navigate to="/sell" replace />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </AppProvider>
+    </BrowserRouter>
+  </StrictMode>,
+)

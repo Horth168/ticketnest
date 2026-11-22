@@ -26,6 +26,7 @@ from urllib.parse import parse_qsl
 import httpx
 from fastapi import HTTPException
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -195,7 +196,11 @@ def user_from_google(db: Session, info: dict) -> tuple[User, bool]:
         user = User(email=email, full_name=clean_text(info.get("name") or email.split("@")[0], 120),
                     role=Role.customer, email_verified=True)
         db.add(user)
-        db.flush()
+        try:
+            db.flush()
+        except IntegrityError:   # two sign-ins at the same moment: use the account the other one made
+            db.rollback()
+            user, created = _usable(db.query(User).filter(func.lower(User.email) == email).one()), False
     link_provider(db, user, "google", sub, email)
     db.flush()
     return user, created
@@ -224,8 +229,14 @@ def user_from_telegram(db: Session, tg: dict, *, allows_write: bool = False) -> 
         name = " ".join(x for x in (tg.get("first_name"), tg.get("last_name")) if x).strip() or tg.get("username") or ""
         user = User(email=None, full_name=clean_text(name or "TicketNest fan", 120), role=Role.customer, telegram_id=tid)
         db.add(user)
-        db.flush()
-        created = True
+        try:
+            db.flush()
+            created = True
+        except IntegrityError:
+            # the same person opened the app twice at once and the other request created the account
+            db.rollback()
+            user = _usable(db.query(User).filter(User.telegram_id == tid).one())
+    if created:
         link_provider(db, user, "telegram", str(tid), "@" + tg["username"] if tg.get("username") else str(tid))
     if tg.get("username"):
         user.telegram_username = tg["username"][:64]

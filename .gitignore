@@ -18,3 +18,5 @@ web/dist/
 Thumbs.db
 .vscode/
 .claude/settings.local.json
+.local-test-accounts.txt
+.local-test-khqr.txt
