@@ -301,3 +301,17 @@ Honest limits:
 - Review of proofs reduces fraud but cannot guarantee a ticket will be accepted at the venue — the authenticity and
   refund policies say exactly that.
 - Card payments are not included.
+
+## 15. Brand files, daily report and languages
+
+- **Logos for Telegram** are in `docs/brand/`: `telegram-bot-512.png` (bot profile photo — BotFather `/setuserpic`),
+  `telegram-admin-group-512.png` and `telegram-payments-group-512.png` (group photos), `telegram-miniapp-640x360.png`
+  (Mini App image), and two wordmarks for documents.
+- **Daily report**: every evening (21:00 Phnom Penh by default) the bot posts a summary to the admin group: tickets sold,
+  sales, TicketNest revenue, new customers and listings, and what is waiting for you. Change the time or turn it off in
+  **Admin → Settings → Telegram**; send one any time with `/report` or **Admin → Overview → Send report to Telegram**.
+  On Render's free plan the API sleeps when idle, so the report is sent the next time it wakes after that hour.
+- **Languages**: the website and Mini App are in English, Khmer and Chinese (switch in the header, footer or profile).
+  Emails, invoices and the admin dashboard stay in English.
+- **Artist logos** come from Wikimedia Commons (public domain / CC0 wordmarks) and are trademarks of their owners,
+  used only to identify the artist. Uploading your own photo in Admin → Artists replaces the logo.

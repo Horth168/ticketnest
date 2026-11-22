@@ -1,12 +1,16 @@
-import { ArrowRight, BadgeCheck, CreditCard, MessageCircle, ShieldCheck, Ticket, Upload } from 'lucide-react'
+import { ArrowRight, BadgeCheck, CreditCard, MessageCircle, ShieldCheck, Sparkles, Ticket, Upload, Zap } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArtistTile, ConcertCard, SkeletonCards } from '../components/cards'
-import { SearchBox, StageArt } from '../components/Layout'
+import { ArtistImage, ArtistTile, ConcertCard, isLogo, SkeletonCards } from '../components/cards'
+import { SearchBox, TelegramIcon, useMiniAppUrl } from '../components/Layout'
+import LiveStage from '../components/LiveStage'
+import { Reveal } from '../components/Motion'
 import { Empty, ErrorNote } from '../components/ui'
 import { useApp } from '../context/App'
+import { useT } from '../i18n'
 import { api } from '../lib/api'
-import { dateShort, usd } from '../lib/format'
+import { cls, dateShort, usd } from '../lib/format'
 
 export function useHome() {
   const [data, setData] = useState(null)
@@ -18,70 +22,82 @@ export function useHome() {
 export default function Home() {
   const { data, error } = useHome()
   const { settings } = useApp()
+  const { t } = useT()
   const markup = settings?.fees?.buyer_markup_bps
   return (
     <>
-      <section className="relative overflow-hidden bg-[#0E0B1F] text-white">
-        <StageArt className="absolute inset-0 h-full w-full" />
-        <div className="page relative flex min-h-[520px] flex-col justify-center py-20">
-          <p className="rise eyebrow !text-white/60">K-pop concert ticket resale · Cambodia</p>
-          <h1 className="rise mt-4 max-w-3xl text-[42px] font-bold leading-[1.02] sm:text-[64px]" style={{ animationDelay: '60ms' }}>
-            Your seat at the show, <span className="text-[#A897FF]">from fans who can't go.</span>
-          </h1>
-          <p className="rise mt-5 max-w-xl text-[17px] leading-relaxed text-white/70" style={{ animationDelay: '120ms' }}>
-            Every listing is checked by our team before it goes live. Pay securely with KHQR and get your ticket through Telegram.
+      <section className="relative overflow-hidden text-white">
+        <LiveStage />
+        <div className="page relative flex min-h-[600px] flex-col justify-center py-24 sm:min-h-[640px]">
+          <p className="rise inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[12px] font-semibold tracking-wide text-white/80 backdrop-blur">
+            <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7CF29C] opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-[#7CF29C]" /></span>
+            {t('K-pop concert ticket resale · Cambodia')}
           </p>
-          <div className="rise mt-8 max-w-xl text-ink" style={{ animationDelay: '180ms' }}><SearchBox big /></div>
-          <div className="rise mt-6 flex flex-wrap gap-2" style={{ animationDelay: '240ms' }}>
-            {(data?.artists || []).slice(0, 6).map((a) => (
-              <Link key={a.id} to={`/artists/${a.slug}`} className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-[13px] font-medium text-white/85 backdrop-blur hover:bg-white/10">{a.name}</Link>
+          <h1 className="rise mt-5 max-w-3xl text-[40px] font-bold leading-[1.04] sm:text-[66px]" style={{ animationDelay: '80ms' }}>
+            {t('Your seat at the show,')} <span className="bg-gradient-to-r from-[#C4B5FF] via-[#FF9BD0] to-[#8BEAF0] bg-clip-text text-transparent">{t("from fans who can't go.")}</span>
+          </h1>
+          <p className="rise mt-5 max-w-xl text-[17px] leading-relaxed text-white/75" style={{ animationDelay: '160ms' }}>
+            {t('Every listing is checked by our team before it goes live. Pay securely with KHQR and get your ticket through Telegram.')}
+          </p>
+          <div className="rise mt-8 max-w-xl text-ink" style={{ animationDelay: '240ms' }}><SearchBox big /></div>
+          <div className="rise mt-6 flex flex-wrap gap-2" style={{ animationDelay: '320ms' }}>
+            {(data?.artists || []).slice(0, 7).map((a) => (
+              <Link key={a.id} to={`/artists/${a.slug}`} className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-[13px] font-medium text-white/85 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/15">{a.name}</Link>
+            ))}
+          </div>
+          <div className="rise mt-10 flex flex-wrap gap-x-8 gap-y-3 text-[13px] text-white/70" style={{ animationDelay: '400ms' }}>
+            {[[ShieldCheck, t('Every listing reviewed')], [Zap, t('Instant KHQR payment')], [MessageCircle, t('Delivered via Telegram')]].map(([Icon, l]) => (
+              <span key={l} className="flex items-center gap-2"><Icon className="h-4 w-4 text-[#C4B5FF]" />{l}</span>
             ))}
           </div>
         </div>
       </section>
 
+      {data?.artists?.length > 0 && <ArtistMarquee artists={data.artists} />}
+
       <div className="page">
         <ErrorNote error={error} />
-        <Section title="Featured concerts" to="/concerts" className="mt-14">
+        <Section title={t('Featured concerts')} to="/concerts" className="mt-14">
           {!data ? <Grid><SkeletonCards n={3} /></Grid>
-            : data.featured.length ? <Grid>{data.featured.map((c) => <ConcertCard key={c.id} c={c} />)}</Grid>
-            : <Empty icon={Ticket} title="No concerts yet">New concerts appear here as soon as our team adds them.</Empty>}
+            : data.featured.length ? <Grid>{data.featured.map((c, i) => <Reveal key={c.id} delay={i * 80}><ConcertCard c={c} /></Reveal>)}</Grid>
+            : <Empty icon={Ticket} title={t('No concerts yet')}>{t('New concerts appear here as soon as our team adds them.')}</Empty>}
         </Section>
 
         {data?.artists?.length > 0 && (
-          <Section title="Popular artists" to="/artists">
+          <Section title={t('Popular artists')} to="/artists">
             <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-2">{data.artists.map((a) => <ArtistTile key={a.id} a={a} />)}</div>
           </Section>
         )}
 
         {data?.upcoming?.length > 3 && (
-          <Section title="Upcoming events" to="/concerts">
-            <Grid four>{data.upcoming.slice(0, 8).map((c) => <ConcertCard key={c.id} c={c} />)}</Grid>
+          <Section title={t('Upcoming events')} to="/concerts">
+            <Grid four>{data.upcoming.slice(0, 8).map((c, i) => <Reveal key={c.id} delay={(i % 4) * 70}><ConcertCard c={c} /></Reveal>)}</Grid>
           </Section>
         )}
 
         {data?.recent_listings?.length > 0 && (
-          <Section title="Recently listed tickets" to="/concerts?available=1">
-            <div className="card divide-y divide-line">
+          <Section title={t('Recently listed tickets')} to="/concerts?available=1">
+            <Reveal className="card divide-y divide-line overflow-hidden">
               {data.recent_listings.map((l) => (
-                <Link key={l.id} to={`/concerts/${l.concert.slug}`} className="flex items-center gap-4 p-4 transition hover:bg-raised">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/10 font-display text-sm font-bold text-accent">{l.category.slice(0, 4)}</div>
+                <Link key={l.id} to={`/concerts/${l.concert.slug}`} className="group flex items-center gap-4 p-4 transition hover:bg-raised">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/10 font-display text-sm font-bold text-accent transition group-hover:scale-105">{l.category.slice(0, 4)}</div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{l.concert.title}</p>
                     <p className="truncate text-[13px] text-muted">{l.concert.artist.name} · {l.concert.city} · {dateShort(l.concert.starts_at)}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold tabular-nums">{usd(l.buyer_price_cents)}</p>
-                    <p className="text-[12px] text-muted">{l.available} left</p>
+                    <p className="text-[12px] text-muted">{t('{n} left', { n: l.available })}</p>
                   </div>
+                  <ArrowRight className="h-4 w-4 -translate-x-1 text-muted opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100" />
                 </Link>
               ))}
-            </div>
+            </Reveal>
           </Section>
         )}
 
         {data?.categories?.length > 0 && (
-          <Section title="Ticket categories on sale">
+          <Section title={t('Ticket categories on sale')}>
             <div className="flex flex-wrap gap-2">
               {data.categories.map((c) => <Link key={c.name} to={`/concerts?category=${encodeURIComponent(c.name)}`} className="chip">{c.name}<span className="text-muted">{c.listings}</span></Link>)}
             </div>
@@ -89,15 +105,19 @@ export default function Home() {
         )}
 
         <HowItWorksStrip markup={markup} />
+        <TelegramPromo />
 
-        <section className="mt-20 grid gap-6 overflow-hidden rounded-3xl bg-ink p-8 text-bg sm:p-12 md:grid-cols-[1.4fr_1fr] md:items-center">
-          <div>
-            <p className="eyebrow !text-bg/60">Can't make the show?</p>
-            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Sell your tickets to real fans.</h2>
-            <p className="mt-3 max-w-lg text-bg/70">List in a few minutes. Our team reviews your ticket proof, handles the payment and delivery, and pays your earnings to your bank.</p>
+        <Reveal as="section" className="relative mt-20 overflow-hidden rounded-3xl bg-ink p-8 text-bg sm:p-12">
+          <div className="glow absolute -right-20 -top-20 h-72 w-72 rounded-full bg-accent/40 blur-3xl" />
+          <div className="relative grid gap-6 md:grid-cols-[1.4fr_1fr] md:items-center">
+            <div>
+              <p className="eyebrow !text-bg/60">{t("Can't make the show?")}</p>
+              <h2 className="mt-3 text-3xl font-bold sm:text-4xl">{t('Sell your tickets to real fans.')}</h2>
+              <p className="mt-3 max-w-lg text-bg/70">{t('List in a few minutes. Our team reviews your ticket, handles payment and delivery, and pays you after the buyer receives the ticket.')}</p>
+            </div>
+            <div className="md:text-right"><Link to="/sell" className="btn bg-bg px-6 py-3.5 text-ink hover:-translate-y-0.5 hover:shadow-lift">{t('Start selling')} <ArrowRight className="h-4 w-4" /></Link></div>
           </div>
-          <div className="md:text-right"><Link to="/sell" className="btn bg-bg px-6 py-3.5 text-ink hover:opacity-90">Start selling <ArrowRight className="h-4 w-4" /></Link></div>
-        </section>
+        </Reveal>
 
         <TrustBlock />
       </div>
@@ -105,13 +125,33 @@ export default function Home() {
   )
 }
 
+function ArtistMarquee({ artists }) {
+  const list = [...artists, ...artists]
+  return (
+    <div className="relative overflow-hidden border-y border-line bg-surface py-5" aria-label="Artists">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-surface to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-surface to-transparent" />
+      <div className="marquee flex w-max items-center gap-4 hover:[animation-play-state:paused]">
+        {list.map((a, i) => (
+          <Link key={`${a.id}-${i}`} to={`/artists/${a.slug}`}
+            className={cls('group grid h-14 w-36 shrink-0 place-items-center overflow-hidden rounded-2xl border border-line transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card',
+              isLogo(a.image_url) ? 'bg-white' : 'bg-raised')} title={a.name}>
+            {a.image_url ? <ArtistImage a={a} className={isLogo(a.image_url) ? '!p-3' : ''} /> : <span className="font-display text-sm font-bold">{a.name}</span>}
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function Section({ title, to, children, className = 'mt-16' }) {
+  const { t } = useT()
   return (
     <section className={className}>
-      <div className="mb-5 flex items-end justify-between gap-4">
+      <Reveal className="mb-5 flex items-end justify-between gap-4">
         <h2 className="text-[26px] font-bold">{title}</h2>
-        {to && <Link to={to} className="flex items-center gap-1 text-sm font-semibold text-accent hover:underline">See all <ArrowRight className="h-4 w-4" /></Link>}
-      </div>
+        {to && <Link to={to} className="group flex items-center gap-1 text-sm font-semibold text-accent">{t('See all')} <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>}
+      </Reveal>
       {children}
     </section>
   )
@@ -119,39 +159,65 @@ function Section({ title, to, children, className = 'mt-16' }) {
 const Grid = ({ children, four }) => <div className={`grid gap-5 sm:grid-cols-2 ${four ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>{children}</div>
 
 export function HowItWorksStrip({ markup }) {
+  const { t } = useT()
   const steps = [
-    [Upload, 'Sellers list', 'Fans submit their tickets with proof. Nothing goes live until our team approves it.'],
-    [CreditCard, 'You pay by KHQR', `Scan with ABA or any Bakong banking app. The price you see includes our ${markup != null ? (markup / 100) + '% ' : ''}marketplace fee.`],
-    [BadgeCheck, 'Payment is verified', 'Your order is confirmed only after the bank payment is matched. You get an email and invoice.'],
-    [MessageCircle, 'Ticket via Telegram', 'Our team contacts you on Telegram and sends your ticket. Your order shows when it is delivered.'],
+    [Upload, t('Sellers list'), t('Fans submit their tickets with proof and the purchase receipt. Nothing goes live until our team approves it.')],
+    [CreditCard, t('You pay by KHQR'), t('Scan with ABA or any Bakong banking app. The price you see includes our {pct} marketplace fee.', { pct: markup != null ? `${markup / 100}%` : '' })],
+    [BadgeCheck, t('Payment is verified'), t('Your order is confirmed only after the bank payment is matched. You get an email and invoice.')],
+    [MessageCircle, t('Ticket via Telegram'), t('Our team contacts you on Telegram and sends your ticket. Your order shows when it is delivered.')],
   ]
   return (
     <section className="mt-20">
-      <h2 className="text-[26px] font-bold">How TicketNest works</h2>
+      <Reveal><h2 className="text-[26px] font-bold">{t('How TicketNest works')}</h2></Reveal>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {steps.map(([Icon, t, d], i) => (
-          <div key={t} className="card p-5">
-            <div className="flex items-center justify-between"><Icon className="h-6 w-6 text-accent" /><span className="font-display text-sm font-bold text-muted">0{i + 1}</span></div>
-            <p className="mt-4 font-semibold">{t}</p>
+        {steps.map(([Icon, title, d], i) => (
+          <Reveal key={title} delay={i * 90} className="card card-hover group p-5">
+            <div className="flex items-center justify-between">
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-accent/10 text-accent transition duration-300 group-hover:scale-110 group-hover:bg-accent group-hover:text-accent-ink"><Icon className="h-5 w-5" /></span>
+              <span className="font-display text-sm font-bold text-muted">0{i + 1}</span>
+            </div>
+            <p className="mt-4 font-semibold">{title}</p>
             <p className="mt-1.5 text-sm leading-relaxed text-muted">{d}</p>
-          </div>
+          </Reveal>
         ))}
       </div>
     </section>
   )
 }
 
+function TelegramPromo() {
+  const { t } = useT()
+  const url = useMiniAppUrl()
+  return (
+    <Reveal as="section" className="mt-20 grid items-center gap-8 overflow-hidden rounded-3xl border border-[#229ED9]/25 bg-gradient-to-br from-[#229ED9]/10 via-surface to-surface p-8 sm:p-10 md:grid-cols-[1fr_auto]">
+      <div>
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#229ED9]/15 px-3 py-1 text-[12px] font-semibold text-[#229ED9]"><Sparkles className="h-3.5 w-3.5" />{t('New')}</span>
+        <h2 className="mt-3 text-3xl font-bold">{t('TicketNest inside Telegram')}</h2>
+        <p className="mt-2 max-w-lg text-muted">{t('Buy, sell and track your tickets without leaving Telegram. One tap to sign in, no download, and order updates straight to your chat.')}</p>
+        <a href={url} target="_blank" rel="noreferrer" className="btn mt-5 bg-[#229ED9] px-5 py-3 text-white hover:brightness-110"><TelegramIcon className="h-5 w-5" />{t('Open in Telegram')}</a>
+      </div>
+      <div className="float mx-auto hidden w-fit rounded-3xl bg-white p-4 shadow-lift md:block">
+        <QRCodeSVG value={url} size={168} />
+        <p className="mt-2 text-center text-[12px] font-medium text-neutral-500">{t('Scan with your phone')}</p>
+      </div>
+    </Reveal>
+  )
+}
+
 function TrustBlock() {
+  const { t } = useT()
   return (
     <section className="mt-16 grid gap-4 md:grid-cols-3">
-      {[[ShieldCheck, 'Reviewed listings', 'Each ticket proof is checked by a person before the listing is public.', '/policies/authenticity'],
-        [BadgeCheck, 'Verified payments only', 'Orders are confirmed from the bank payment record, never from a screenshot.', '/how-it-works'],
-        [CreditCard, 'Clear refund rules', 'If a concert is cancelled or a ticket is not delivered, our refund policy applies.', '/policies/refunds']]
-        .map(([Icon, t, d, to]) => (
-          <Link key={t} to={to} className="card flex gap-4 p-5 transition hover:border-ink/20">
-            <Icon className="mt-0.5 h-5 w-5 shrink-0 text-good" />
-            <div><p className="font-semibold">{t}</p><p className="mt-1 text-sm text-muted">{d}</p></div>
-          </Link>
+      {[[ShieldCheck, t('Reviewed listings'), t('Each ticket proof and purchase receipt is checked by a person before the listing is public.'), '/policies/authenticity'],
+        [BadgeCheck, t('Verified payments only'), t('Orders are confirmed from the bank payment record, never from a screenshot.'), '/how-it-works'],
+        [CreditCard, t('Clear refund rules'), t('If a concert is cancelled or a ticket is not delivered, our refund policy applies.'), '/policies/refunds']]
+        .map(([Icon, title, d, to], i) => (
+          <Reveal key={title} delay={i * 90}>
+            <Link to={to} className="card card-hover flex h-full gap-4 p-5">
+              <Icon className="mt-0.5 h-5 w-5 shrink-0 text-good" />
+              <div><p className="font-semibold">{title}</p><p className="mt-1 text-sm text-muted">{d}</p></div>
+            </Link>
+          </Reveal>
         ))}
     </section>
   )

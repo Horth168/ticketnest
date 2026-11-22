@@ -115,7 +115,9 @@ def create_listing(client, setup, price="100", qty=2, category=0):
         "quantity": qty, "seat_info": "Row A", "ticket_type": "e_ticket", "contact_name": "Sok Seller",
         "contact_telegram": "@sok_seller", "payout_method": "ABA", "payout_account_name": "SOK SELLER",
         "payout_account_number": "000111222", "confirm_owner": "true"},
-        files=[("files", ("ticket.png", png_bytes(), "image/png"))])
+        files=[("files", ("ticket.png", png_bytes(), "image/png")),
+               ("receipts", ("receipt.png", png_bytes(), "image/png")),
+               ("payout_qr", ("my-aba-qr.png", png_bytes(), "image/png"))])
     assert r.status_code == 201, r.text
     return r.json()
 

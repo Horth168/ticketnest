@@ -23,12 +23,28 @@ function OrderList() {
       <Tabs value={status} onChange={(v) => setSp(v ? { status: v } : {})} options={[['', 'All'], ['paid,preparing,awaiting_delivery', 'To deliver'], ['awaiting_payment', 'Awaiting payment'], ['delivered,completed', 'Delivered'], ['cancelled', 'Cancelled'], ['refunded', 'Refunded']]} />
       <input className="input mb-4 max-w-sm" placeholder="Order number, name, Telegram, email" value={q} onChange={(e) => setQ(e.target.value)} />
       {!d ? <Loading /> : !d.items.length ? <Empty title="No orders" /> : (
-        <div className="card overflow-x-auto">
+        <>
+        <div className="space-y-2 md:hidden">
+          {d.items.map((o) => (
+            <Link key={o.id} to={`/admin/orders/${o.id}`} className="card card-hover block p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0"><p className="font-semibold">{o.order_number}</p><p className="truncate text-[13px] text-muted">{o.item.concert_title}</p></div>
+                <OrderBadge status={o.status} />
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[13px]">
+                <span className="text-muted">{o.item.category_name} × {o.item.quantity} · {o.contact.name}</span>
+                <b className="tabular-nums">{usd2(o.total_cents)}</b>
+              </div>
+              <p className="mt-1 text-[12px] text-muted">{dateTime(o.created_at)} · {o.channel}</p>
+            </Link>
+          ))}
+        </div>
+        <div className="card hidden overflow-x-auto md:block">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="text-left text-[12px] text-muted"><tr><th className="px-4 py-3">Order</th><th>Concert</th><th>Buyer</th><th>Status</th><th className="px-4 text-right">Total</th></tr></thead>
             <tbody className="divide-y divide-line">
               {d.items.map((o) => (
-                <tr key={o.id} className="hover:bg-raised">
+                <tr key={o.id} className="transition hover:bg-raised">
                   <td className="px-4 py-3"><Link className="font-semibold hover:text-accent" to={`/admin/orders/${o.id}`}>{o.order_number}</Link><p className="text-[12px] text-muted">{dateTime(o.created_at)} · {o.channel}</p></td>
                   <td className="py-3">{o.item.concert_title}<p className="text-[12px] text-muted">{o.item.category_name} × {o.item.quantity}</p></td>
                   <td className="py-3">{o.contact.name}<p className="text-[12px] text-muted">@{o.contact.telegram}</p></td>
@@ -39,6 +55,7 @@ function OrderList() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   )

@@ -11,6 +11,7 @@
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "5.1.1",
     "@fontsource-variable/inter": "5.1.1",
+    "@fontsource-variable/kantumruy-pro": "^5.2.5",
     "lucide-react": "0.468.0",
     "qrcode.react": "4.2.0",
     "react": "18.3.1",

@@ -45,6 +45,13 @@ class User(TS, Base):
     token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     telegram_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, index=True)
     telegram_username: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    avatar_url: Mapped[str] = mapped_column(String(500), default="", server_default="", nullable=False)
+    locale: Mapped[str] = mapped_column(String(5), default="en", server_default="en", nullable=False)
+    # saved payout details, so sellers don't retype them (QR = their bank KHQR image, private)
+    payout_method: Mapped[str] = mapped_column(String(40), default="", server_default="", nullable=False)
+    payout_account_name: Mapped[str] = mapped_column(String(120), default="", server_default="", nullable=False)
+    payout_account_number: Mapped[str] = mapped_column(String(64), default="", server_default="", nullable=False)
+    payout_qr_key: Mapped[str] = mapped_column(String(300), default="", server_default="", nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     providers: Mapped[list[UserAuthProvider]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -204,6 +211,7 @@ class TicketListing(TS, Base):
     payout_method: Mapped[str] = mapped_column(String(40), default="", nullable=False)   # ABA, ACLEDA, Wing ...
     payout_account_name: Mapped[str] = mapped_column(String(120), default="", nullable=False)
     payout_account_number: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    payout_qr_key: Mapped[str] = mapped_column(String(300), default="", server_default="", nullable=False)
     reviewed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -224,6 +232,7 @@ class TicketImage(Base):
     listing_id: Mapped[int] = mapped_column(ForeignKey("ticket_listings.id", ondelete="CASCADE"), index=True,
                                             nullable=False)
     storage_key: Mapped[str] = mapped_column(String(300), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), default="proof", server_default="proof", nullable=False)  # proof | receipt
     content_type: Mapped[str] = mapped_column(String(60), nullable=False)
     original_name: Mapped[str] = mapped_column(String(200), default="", nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

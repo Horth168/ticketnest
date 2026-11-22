@@ -11,13 +11,16 @@ export const khr = (cents, rate) => `៛${(Math.round((cents * rate) / 10000) * 
 export const pct = (bps) => `${(bps / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}%`
 
 const TZ = 'Asia/Phnom_Penh'
-export const dateLong = (iso) => iso ? new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : ''
-export const dateShort = (iso) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''
-export const time = (iso) => iso ? new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''
-export const dateTime = (iso) => iso ? new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: TZ }) : ''
+// set by the language provider so every date follows the chosen language
+let LOC = 'en-GB'
+export const setFormatLocale = (l) => { LOC = l }
+export const dateLong = (iso) => iso ? new Date(iso).toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : ''
+export const dateShort = (iso) => iso ? new Date(iso).toLocaleDateString(LOC, { day: 'numeric', month: 'short' }) : ''
+export const time = (iso) => iso ? new Date(iso).toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' }) : ''
+export const dateTime = (iso) => iso ? new Date(iso).toLocaleString(LOC, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: TZ }) : ''
 export const dayParts = (iso) => {
   const d = new Date(iso)
-  return { day: d.getDate(), mon: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(), dow: d.toLocaleString('en-US', { weekday: 'short' }) }
+  return { day: d.getDate(), mon: d.toLocaleString(LOC === 'en-GB' ? 'en-US' : LOC, { month: 'short' }).toUpperCase(), dow: d.toLocaleString(LOC === 'en-GB' ? 'en-US' : LOC, { weekday: 'short' }) }
 }
 
 export const ORDER_STATUS = {

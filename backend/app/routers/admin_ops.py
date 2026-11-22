@@ -19,7 +19,7 @@ from app.schemas import ListingEditIn
 from app.security import require_admin, require_staff
 from app.serializers import listing_admin, order_out, user_out, withdrawal_out
 from app.services import audit, email as mail, invoice_pdf, khqr, listings as lst, orders as svc, payway, storage, wallet
-from app.services import tg_listener
+from app.services import reports, tg_listener
 from app.services.pricing import MAX_BPS
 from app.services.settings_store import all_settings, get_setting, set_setting
 from app.utils import clean_text, iso, to_cents, utcnow
@@ -58,6 +58,9 @@ def overview(db: Session = Depends(get_db), _: User = Depends(require_staff)):
         "unmatched_payments": db.query(PaymentNotification)
                                 .filter(PaymentNotification.outcome.in_(["unmatched", "ambiguous", "wrong_amount", "late"])).count(),
         "daily": [{"date": str(d), "revenue_cents": int(r or 0), "orders": int(n)} for d, r, n in daily],
+        "series": reports.series(db, 30),
+        "top_concerts": reports.top_concerts(db, 5),
+        "listing_status": reports.listing_status_counts(db),
         "recent_orders": [order_out(o, admin=True) for o in recent],
         "integrations": integrations(),
     }
@@ -107,6 +110,26 @@ def listing_file(listing_id: int, file_id: int, db: Session = Depends(get_db), _
         raise HTTPException(404, "File not found")
     return Response(storage.read_private(f.storage_key), media_type=f.content_type,
                     headers={"Cache-Control": "private, no-store", "Content-Disposition": "inline"})
+
+
+@router.get("/listings/{listing_id}/payout-qr")
+def listing_payout_qr(listing_id: int, db: Session = Depends(get_db), _: User = Depends(require_staff)):
+    l = _listing(db, listing_id)
+    if not l.payout_qr_key:
+        raise HTTPException(404, "The seller didn't upload a payout QR")
+    data = storage.read_private(l.payout_qr_key)
+    return Response(data, media_type=storage.sniff(data) or "image/png",
+                    headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/users/{user_id}/payout-qr")
+def user_payout_qr(user_id: int, db: Session = Depends(get_db), _: User = Depends(require_staff)):
+    u = db.get(User, user_id)
+    if not u or not u.payout_qr_key:
+        raise HTTPException(404, "This seller has no payout QR")
+    data = storage.read_private(u.payout_qr_key)
+    return Response(data, media_type=storage.sniff(data) or "image/png",
+                    headers={"Cache-Control": "private, no-store"})
 
 
 class ReasonIn(BaseModel):
@@ -524,6 +547,8 @@ def put_settings(key: str, body: dict, db: Session = Depends(get_db), user: User
         for k, lo, hi in (("qr_expiry_minutes", 5, 120), ("grace_minutes", 0, 60)):
             if k in body and not lo <= int(body[k]) <= hi:
                 raise HTTPException(422, f"{k} must be between {lo} and {hi}")
+    if key == "telegram" and "daily_report_hour" in body and not 0 <= int(body["daily_report_hour"]) <= 23:
+        raise HTTPException(422, "Report hour must be 0-23")
     if key == "telegram":
         from app.utils import clean_tg_username
         for k in ("support_username", "delivery_username"):
@@ -550,6 +575,15 @@ def khqr_preview(body: dict, _: User = Depends(require_admin)):
         return khqr.describe_template(str(body.get("template", "")))
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
+
+
+@router.post("/reports/daily/send")
+def send_daily_now(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.services import telegram as tg
+    if not tg.enabled() or not tg.admin_targets():
+        raise HTTPException(400, "Telegram admin group is not configured")
+    ok = all(bool((tg.send_now(t, reports.daily_text(db)) or {}).get("ok")) for t in tg.admin_targets())
+    return {"ok": ok}
 
 
 @router.post("/settings/test-telegram")

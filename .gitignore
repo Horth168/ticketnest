@@ -20,3 +20,11 @@ Thumbs.db
 .claude/settings.local.json
 .local-test-accounts.txt
 .local-test-khqr.txt
+
+# personal files kept in the project folder (never commit)
+API.txt
+*.txt
+!backend/requirements.txt
+!**/requirements*.txt
+khqr*.jpg
+/telegram-miniapp-640x360.png

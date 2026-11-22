@@ -257,3 +257,57 @@ def send_cancelled(order, refunded: bool) -> None:
     send_later(s["to"], f"{title} · {s['num']}", f"{title}: {s['num']}. {s['reason']}",
                layout(title, intro, _order_table(s), ("View your order", s["link"])),
                kind="refunded" if refunded else "cancelled", order_id=s["id"])
+
+
+# ---------------------------------------------------------------- seller emails
+PAYOUT_NOTE = ("You are paid when a buyer purchases your ticket and receives it, not when you submit the "
+               "listing. Your earnings then move to your TicketNest wallet and you can request a withdrawal.")
+
+
+def send_listing_submitted(db, listing) -> None:
+    """Seller's receipt for a submitted listing, with the payout rule spelled out."""
+    from app.services.pricing import quote_for
+    from app.utils import fmt_local, fmt_usd2
+    seller = listing.seller
+    if not seller or not seller.email:
+        return
+    q = quote_for(db, listing.price_cents, listing.quantity)
+    rows = _rows([("Listing", f"#{listing.id}"), ("Concert", listing.concert.title),
+                  ("Date", fmt_local(listing.concert.starts_at, "%a %d %b %Y, %H:%M")),
+                  ("Category", f"{listing.category.name} × {listing.quantity}"), ("Seat", listing.seat_info or "-"),
+                  ("Original price (per ticket)", fmt_usd2(listing.original_price_cents)),
+                  ("Your listing price (per ticket)", fmt_usd2(listing.price_cents)),
+                  (f"TicketNest commission ({q.commission_bps / 100:g}%)", "−" + fmt_usd2(q.commission_cents)),
+                  ("You receive if all sell", fmt_usd2(q.seller_payout_cents))], total_last=True)
+    note = (f'<p style="margin:18px 0 0;padding:12px 14px;background:#F4F1FF;border-radius:10px;font-size:13px;'
+            f'line-height:1.6;color:#33333B"><b>When do I get paid?</b> {escape(PAYOUT_NOTE)}</p>')
+    intro = (f"Hi {escape(seller.full_name)}, we received your listing. Our team will check your ticket proof and "
+             "purchase receipt, usually within 24 hours. You'll get a message when it is approved.")
+    text = (f"Listing #{listing.id} received: {listing.concert.title}, {listing.category.name} x{listing.quantity} at "
+            f"{fmt_usd2(listing.price_cents)} each. You receive {fmt_usd2(q.seller_payout_cents)} if all sell.\n\n{PAYOUT_NOTE}")
+    send_later(seller.email, f"Listing #{listing.id} received · TicketNest", text,
+               layout("Listing received", intro, rows + note,
+                      ("View my listings", f"{settings.SITE_URL.rstrip('/')}/account/listings")),
+               kind="listing_submitted")
+
+
+def send_ticket_sold(order) -> None:
+    """Tell each seller their ticket sold; earnings are pending until the buyer receives it."""
+    from app.utils import fmt_usd2, percent_of
+    for it in order.items:
+        seller = it.listing.seller if it.listing else None
+        if not seller or not seller.email:
+            continue
+        net = (it.unit_price_cents - percent_of(it.unit_price_cents, order.commission_bps)) * it.quantity
+        rows = _rows([("Order", order.order_number), ("Concert", it.concert_title),
+                      ("Category", f"{it.category_name} × {it.quantity}"),
+                      ("Your price", f"{fmt_usd2(it.unit_price_cents)} each"),
+                      ("Your earnings", fmt_usd2(net))], total_last=True)
+        intro = (f"Hi {escape(seller.full_name)}, good news — your ticket for <b>{escape(it.concert_title)}</b> was sold. "
+                 "Please keep the ticket ready: our team will contact you on Telegram to transfer it to the buyer. "
+                 f"Your {fmt_usd2(net)} is pending and becomes available in your wallet once the buyer receives the ticket.")
+        send_later(seller.email, f"Your ticket sold · {order.order_number}",
+                   f"Your ticket for {it.concert_title} sold. Earnings {fmt_usd2(net)} become available after delivery.",
+                   layout("Your ticket sold", intro, rows,
+                          ("Open my wallet", f"{settings.SITE_URL.rstrip('/')}/account/wallet")),
+                   kind="ticket_sold", order_id=order.id)

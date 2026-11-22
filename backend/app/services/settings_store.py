@@ -29,6 +29,8 @@ DEFAULTS: dict[str, dict] = {
         "mini_app_url": "",
         "admin_alerts": True,
         "customer_updates": True,
+        "daily_report": True,            # daily summary to the admin group
+        "daily_report_hour": 21,         # local hour (Phnom Penh) it is sent at
     },
     "payments": {
         "khqr_enabled": True,

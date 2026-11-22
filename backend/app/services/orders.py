@@ -210,6 +210,7 @@ def after_commit_paid(db: Session) -> None:
             log.exception("Invoice PDF failed for %s", order.order_number)
             pdf = None
         mail.send_payment_confirmed(order, pdf)
+        mail.send_ticket_sold(order)
 
 
 # ---------------------------------------------------------------- expiry / cancel / refund

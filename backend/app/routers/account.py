@@ -1,6 +1,7 @@
 """The signed-in user's own profile, connections, wallet and withdrawals."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -10,8 +11,8 @@ from app.models import Order, User, UserAuthProvider, WalletTransaction, Withdra
 from app.schemas import GoogleIn, PasswordIn, ProfileIn, TelegramAppIn, TelegramWidgetIn, WithdrawalIn
 from app.security import get_current_user, hash_password, verify_password
 from app.serializers import order_out, user_out, withdrawal_out
-from app.services import audit, notify, social, wallet
-from app.utils import iso
+from app.services import audit, notify, social, storage, wallet
+from app.utils import clean_text, iso
 
 router = APIRouter(prefix="/api/account", tags=["Account"])
 
@@ -29,6 +30,12 @@ def update_me(body: ProfileIn, user: User = Depends(get_current_user), db: Sessi
         user.phone = body.phone
     if body.telegram_username is not None:
         user.telegram_username = body.telegram_username
+    if body.locale:
+        user.locale = body.locale
+    for k in ("payout_method", "payout_account_name", "payout_account_number"):
+        v = getattr(body, k)
+        if v is not None:
+            setattr(user, k, clean_text(v, 120))
     if body.email is not None and body.email.lower() != (user.email or ""):
         email = body.email.lower()
         if db.query(User.id).filter(func.lower(User.email) == email, User.id != user.id).first():
@@ -38,6 +45,55 @@ def update_me(body: ProfileIn, user: User = Depends(get_current_user), db: Sessi
         audit.log(db, "user.email_change", "user", user.id, actor=user)
     db.commit()
     return user_out(user)
+
+
+@router.post("/avatar")
+@limiter.limit("20/hour")
+async def upload_avatar(request: Request, file: UploadFile = File(...), user: User = Depends(get_current_user),
+                        db: Session = Depends(get_db)):
+    data, kind = await storage.read_upload(file, allow_pdf=False)
+    user.avatar_url = storage.save_public(_square(data), "image/jpeg", "avatars")
+    db.commit()
+    return user_out(user)
+
+
+@router.delete("/avatar")
+def remove_avatar(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user.avatar_url = ""
+    db.commit()
+    return user_out(user)
+
+
+def _square(data: bytes, size: int = 400) -> bytes:
+    """Centre-crop to a square JPEG so every avatar looks the same."""
+    import io
+    from PIL import Image, ImageOps
+    img = ImageOps.exif_transpose(Image.open(io.BytesIO(data))).convert("RGB")
+    img = ImageOps.fit(img, (size, size), Image.LANCZOS)
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=88)
+    return out.getvalue()
+
+
+@router.post("/payout-qr")
+@limiter.limit("20/hour")
+async def upload_payout_qr(request: Request, file: UploadFile = File(...), user: User = Depends(get_current_user),
+                           db: Session = Depends(get_db)):
+    """The seller's own bank KHQR image, so the owner can scan it to pay withdrawals. Private."""
+    data, kind = await storage.read_upload(file, allow_pdf=False)
+    user.payout_qr_key = storage.save_private(data, kind, "payout-qr")
+    audit.log(db, "user.payout_qr", "user", user.id, actor=user)
+    db.commit()
+    return user_out(user)
+
+
+@router.get("/payout-qr")
+def my_payout_qr(user: User = Depends(get_current_user)):
+    if not user.payout_qr_key:
+        raise HTTPException(404, "No payout QR uploaded")
+    data = storage.read_private(user.payout_qr_key)
+    return Response(data, media_type=storage.sniff(data) or "image/png",
+                    headers={"Cache-Control": "private, no-store"})
 
 
 @router.post("/password")

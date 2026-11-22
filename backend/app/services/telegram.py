@@ -78,6 +78,7 @@ COMMANDS = [
     {"command": "listings", "description": "Admin: listings awaiting approval"},
     {"command": "stock", "description": "Admin: tickets on sale"},
     {"command": "revenue", "description": "Admin: revenue summary"},
+    {"command": "report", "description": "Admin: today's report"},
 ]
 
 

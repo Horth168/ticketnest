@@ -100,6 +100,10 @@ class ProfileIn(Clean):
     phone: str | None = None
     email: EmailStr | None = None
     telegram_username: str | None = None
+    locale: Literal["en", "km", "zh"] | None = None
+    payout_method: str | None = Field(None, max_length=40)
+    payout_account_name: str | None = Field(None, max_length=120)
+    payout_account_number: str | None = Field(None, max_length=64)
     _ph = field_validator("phone")(classmethod(lambda cls, v: _phone(v) if v is not None else v))
     _tg = field_validator("telegram_username")(classmethod(lambda cls, v: clean_tg_username(v) if v is not None else v))
     _n = field_validator("full_name")(classmethod(lambda cls, v: clean_text(v, 120) if v else v))

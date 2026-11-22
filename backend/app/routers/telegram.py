@@ -136,14 +136,19 @@ def _command(db: Session, msg: dict) -> None:
         _reply(cid, base)
         return
 
-    if cmd not in ("/dashboard", "/orders", "/listings", "/pending", "/stock", "/revenue"):
+    if cmd not in ("/dashboard", "/orders", "/listings", "/pending", "/stock", "/revenue", "/report"):
         return
     if not tg.is_admin(frm.get("id")):
         _reply(cid, "⛔ This command is for TicketNest admins only.")
         log.warning("Non-admin %s tried %s", frm.get("id"), cmd)
         return
     {"/dashboard": _dashboard, "/orders": _orders, "/listings": _listings, "/pending": _pending,
-     "/stock": _stock, "/revenue": _revenue}[cmd](db, cid)
+     "/stock": _stock, "/revenue": _revenue, "/report": _report}[cmd](db, cid)
+
+
+def _report(db: Session, cid) -> None:
+    from app.services import reports
+    _reply(cid, reports.daily_text(db))
 
 
 def _sum_paid(db: Session, since=None) -> tuple[int, int, int]:

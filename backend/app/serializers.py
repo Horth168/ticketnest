@@ -13,6 +13,9 @@ def user_out(u: User) -> dict:
     return {"id": u.id, "email": u.email, "full_name": u.full_name, "phone": u.phone, "role": u.role.value,
             "telegram_id": u.telegram_id, "telegram_username": u.telegram_username, "has_password": u.has_password,
             "providers": sorted(p.provider for p in u.providers), "email_verified": u.email_verified,
+            "avatar_url": u.avatar_url, "locale": u.locale,
+            "payout": {"method": u.payout_method, "account_name": u.payout_account_name,
+                       "account_number": u.payout_account_number, "has_qr": bool(u.payout_qr_key)},
             "created_at": iso(u.created_at)}
 
 
@@ -51,8 +54,8 @@ def listing_owner(db: Session, l: TicketListing) -> dict:
               "contact_name": l.contact_name, "contact_phone": l.contact_phone, "contact_telegram": l.contact_telegram,
               "payout_method": l.payout_method, "payout_account_name": l.payout_account_name,
               "payout_account_number": l.payout_account_number,
-              "files": [{"id": f.id, "name": f.original_name, "type": f.content_type, "size": f.size_bytes}
-                        for f in l.files],
+              "files": [{"id": f.id, "kind": f.kind, "name": f.original_name, "type": f.content_type, "size": f.size_bytes}
+                        for f in l.files], "has_payout_qr": bool(l.payout_qr_key),
               "can_edit": l.status.value in ("pending", "rejected", "available") and l.quantity_reserved == 0,
               "can_cancel": l.status.value in ("pending", "rejected", "available", "approved")
                             and l.quantity_reserved == 0, "updated_at": iso(l.updated_at)})
@@ -124,5 +127,6 @@ def withdrawal_out(w: WithdrawalRequest, *, admin: bool = False) -> dict:
          "payout_reference": w.payout_reference, "created_at": iso(w.created_at), "processed_at": iso(w.processed_at)}
     if admin:
         d["seller"] = {"id": w.user.id, "name": w.user.full_name, "email": w.user.email,
-                       "telegram_username": w.user.telegram_username}
+                       "telegram_username": w.user.telegram_username, "has_payout_qr": bool(w.user.payout_qr_key),
+                       "avatar_url": w.user.avatar_url}
     return d

@@ -1,5 +1,6 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource-variable/kantumruy-pro';
 
 @tailwind base;
 @tailwind components;
@@ -37,7 +38,13 @@
   color-scheme: dark;
 }
 
-html { -webkit-tap-highlight-color: transparent; }
+html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
+/* Khmer and Chinese need their own fonts (Latin text keeps Inter) */
+html[data-lang='km'] body, html[data-lang='km'] h1, html[data-lang='km'] h2, html[data-lang='km'] h3, html[data-lang='km'] .font-display {
+  font-family: 'Inter Variable', 'Kantumruy Pro Variable', 'Kantumruy Pro', system-ui, sans-serif; letter-spacing: 0; }
+html[data-lang='km'] h1 { line-height: 1.25 !important; }
+html[data-lang='zh'] body, html[data-lang='zh'] h1, html[data-lang='zh'] h2, html[data-lang='zh'] h3, html[data-lang='zh'] .font-display {
+  font-family: 'Inter Variable', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif; }
 body { @apply bg-bg text-ink font-sans antialiased; font-feature-settings: 'cv11', 'ss01'; }
 h1, h2, h3, .font-display { font-family: theme('fontFamily.display'); letter-spacing: -0.02em; }
 ::selection { background: rgb(var(--accent) / .25); }
@@ -46,28 +53,71 @@ h1, h2, h3, .font-display { font-family: theme('fontFamily.display'); letter-spa
 @layer components {
   .page { @apply mx-auto w-full max-w-page px-4 sm:px-6; }
   .card { @apply rounded-2xl border border-line bg-surface; }
-  .btn { @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition
-         duration-150 active:scale-[.98] disabled:pointer-events-none disabled:opacity-50; }
-  .btn-primary { @apply btn bg-ink text-bg hover:opacity-90; }
-  .btn-accent { @apply btn bg-accent text-accent-ink hover:brightness-110; }
-  .btn-ghost { @apply btn border border-line bg-surface hover:bg-raised; }
+  .btn { @apply relative inline-flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-xl px-4 py-2.5 text-sm
+         font-semibold transition-all duration-200 ease-out hover:-translate-y-px active:translate-y-0 active:scale-[.97]
+         disabled:pointer-events-none disabled:opacity-50; }
+  .btn-primary { @apply btn bg-ink text-bg shadow-sm hover:shadow-lift; }
+  .btn-accent { @apply btn bg-accent text-accent-ink shadow-[0_8px_24px_-10px_rgb(var(--accent)/.7)] hover:shadow-[0_14px_32px_-10px_rgb(var(--accent)/.8)] hover:brightness-110; }
+  .btn-ghost { @apply btn border border-line bg-surface hover:border-ink/20 hover:bg-raised; }
+  /* light sweep across primary buttons on hover */
+  .btn-accent::after, .btn-primary::after { content: ''; position: absolute; inset: 0; transform: translateX(-120%);
+    background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / .28) 50%, transparent 70%); transition: transform .7s ease; }
+  .btn-accent:hover::after, .btn-primary:hover::after { transform: translateX(120%); }
   .btn-danger { @apply btn border border-bad/30 bg-bad/10 text-bad hover:bg-bad/15; }
   .input { @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[15px] text-ink outline-none
            transition placeholder:text-muted/70 focus:border-accent focus:ring-4 focus:ring-accent/15; }
   .label { @apply mb-1.5 block text-[13px] font-medium text-muted; }
   .chip { @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[13px]
-          font-medium text-ink transition hover:border-ink/30; }
+          font-medium text-ink transition-all duration-200 hover:-translate-y-px hover:border-ink/30 active:scale-95; }
+  .card-hover { @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:border-ink/15 hover:shadow-lift; }
   .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[.14em] text-muted; }
 }
 
 /* subtle 3D tilt for concert cards (desktop pointers only) */
 .tilt { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .25s ease, box-shadow .25s ease; }
-@media (prefers-reduced-motion: reduce) { .tilt { transform: none !important; } * { transition-duration: 0ms !important; animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .tilt { transform: none !important; } .reveal { opacity: 1; transform: none; }
+  * { transition-duration: 0ms !important; animation: none !important; } }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
 
-@keyframes rise { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
-.rise { animation: rise .45s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
+.rise { animation: rise .6s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+.page-in { animation: page-in .35s cubic-bezier(.2,.7,.2,1) both; }
+/* scroll reveal (see useReveal) */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+.reveal.in { opacity: 1; transform: none; }
+@keyframes pop { 0% { transform: scale(.9); opacity: 0 } 60% { transform: scale(1.02) } 100% { transform: scale(1); opacity: 1 } }
+.pop { animation: pop .35s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes float-y { 50% { transform: translateY(-6px) } }
+.float { animation: float-y 4s ease-in-out infinite; }
+
+/* ---------------- hero: live concert stage ---------------- */
+@keyframes beam-a { 0%,100% { transform: rotate(-22deg) } 50% { transform: rotate(14deg) } }
+@keyframes beam-b { 0%,100% { transform: rotate(18deg) } 50% { transform: rotate(-16deg) } }
+@keyframes beam-c { 0%,100% { transform: rotate(-6deg) } 50% { transform: rotate(8deg) } }
+@keyframes hue { 0%,100% { filter: hue-rotate(0deg) } 50% { filter: hue-rotate(60deg) } }
+@keyframes twinkle { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+@keyframes sway { 0%,100% { transform: rotate(-14deg) } 50% { transform: rotate(14deg) } }
+@keyframes pulse-glow { 0%,100% { opacity: .55; transform: scale(1) } 50% { opacity: .9; transform: scale(1.08) } }
+@keyframes drift { from { transform: translateY(0) } to { transform: translateY(-110vh) } }
+@keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+.beam { transform-origin: 50% 0; mix-blend-mode: screen; }
+.beam-a { animation: beam-a 9s ease-in-out infinite; }
+.beam-b { animation: beam-b 11s ease-in-out infinite; }
+.beam-c { animation: beam-c 7s ease-in-out infinite; }
+.stage-hue { animation: hue 16s ease-in-out infinite; }
+.twinkle { animation: twinkle 2.4s ease-in-out infinite; }
+.lightstick { transform-box: fill-box; transform-origin: 50% 100%; animation: sway 2.2s ease-in-out infinite; }
+.glow { animation: pulse-glow 5s ease-in-out infinite; }
+.confetti { animation: drift linear infinite; }
+.marquee { animation: marquee 40s linear infinite; }
 @keyframes pulse-soft { 50% { opacity: .55 } }
 .skeleton { @apply rounded-xl bg-line/60; animation: pulse-soft 1.4s ease-in-out infinite; }
+
+@keyframes drawer { from { transform: translateX(-100%) } to { transform: none } }
+@keyframes grow-y { from { transform: scaleY(0) } to { transform: scaleY(1) } }
+.bar-grow { transform-origin: bottom; animation: grow-y .7s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes draw { from { stroke-dashoffset: var(--len, 1200) } to { stroke-dashoffset: 0 } }
+.line-draw { stroke-dasharray: var(--len, 1200); animation: draw 1.2s ease-out both; }

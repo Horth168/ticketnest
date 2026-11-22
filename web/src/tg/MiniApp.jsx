@@ -17,6 +17,8 @@ import Concert, { Artist } from '../pages/Concert'
 import Explore from '../pages/Explore'
 import { useHome } from '../pages/Home'
 import { Policy, Support } from '../pages/Info'
+import { LANGS, useT } from '../i18n'
+import { Avatar } from '../components/ui'
 import Sell from '../pages/Sell'
 
 let signInOnce = null   // one sign-in per app launch (effects can run twice)
@@ -75,12 +77,13 @@ const TABS = [['/tg', 'Home', HomeIcon, true], ['/tg/explore', 'Explore', Search
 
 export default function MiniApp() {
   const state = useTelegramShell()
+  const { t } = useT()
   useBackButton()
   const loc = useLocation()
   useEffect(() => { window.scrollTo(0, 0) }, [loc.pathname])
   if (state === 'outside') return <Outside />
   if (state === 'starting') return <div className="grid min-h-screen place-items-center"><Spinner className="h-6 w-6 text-muted" /></div>
-  if (state === 'error') return <div className="page pt-16"><Empty title="Couldn't sign you in">Close and reopen the app from the TicketNest bot. If it keeps happening, contact support.</Empty></div>
+  if (state === 'error') return <div className="page pt-16"><Empty title={t("Couldn't sign you in")}>{t('Close and reopen the app from the TicketNest bot. If it keeps happening, contact support.')}</Empty></div>
   const hideTabs = /\/(checkout|orders\/TN)/.test(loc.pathname)
   return (
     <BaseProvider value="/tg">
@@ -94,8 +97,8 @@ export default function MiniApp() {
           <Route path="checkout/:listingId" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="orders/:number" element={<RequireAuth><OrderPage /></RequireAuth>} />
           <Route path="sell" element={<RequireAuth><Sell /></RequireAuth>} />
-          <Route path="orders" element={<RequireAuth><div className="page pt-5"><h1 className="mb-4 text-2xl font-bold">My orders</h1><MyOrders /></div></RequireAuth>} />
-          <Route path="listings" element={<RequireAuth><div className="page pt-5"><h1 className="mb-4 text-2xl font-bold">My listings</h1><MyListings /></div></RequireAuth>} />
+          <Route path="orders" element={<RequireAuth><div className="page pt-5"><h1 className="mb-4 text-2xl font-bold">{t('My orders')}</h1><MyOrders /></div></RequireAuth>} />
+          <Route path="listings" element={<RequireAuth><div className="page pt-5"><h1 className="mb-4 text-2xl font-bold">{t('My listings')}</h1><MyListings /></div></RequireAuth>} />
           <Route path="account" element={<RequireAuth><Account /></RequireAuth>}>
             <Route index element={<Profile />} /><Route path="orders" element={<MyOrders />} /><Route path="listings" element={<MyListings />} />
             <Route path="wallet" element={<MyWallet />} /><Route path="invoices" element={<MyInvoices />} />
@@ -111,8 +114,8 @@ export default function MiniApp() {
           <div className="mx-auto grid max-w-lg grid-cols-5">
             {TABS.map(([to, label, Icon, end]) => (
               <NavLink key={to} to={to} end={end} onClick={() => haptic('light')}
-                className={({ isActive }) => cls('flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition', isActive ? 'text-accent' : 'text-muted')}>
-                <Icon className="h-[22px] w-[22px]" />{label}
+                className={({ isActive }) => cls('group flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition', isActive ? 'text-accent' : 'text-muted')}>
+                <Icon className="h-[22px] w-[22px] transition-transform duration-200 group-active:scale-90" />{t(label)}
               </NavLink>
             ))}
           </div>
@@ -125,32 +128,33 @@ export default function MiniApp() {
 function TgHome() {
   const { data } = useHome()
   const { user } = useApp()
+  const { t } = useT()
   return (
     <div className="page pt-4">
-      <div className="flex items-center justify-between"><Logo /><span className="text-[13px] text-muted">Hi, {user?.full_name?.split(' ')[0]}</span></div>
-      <Link to="/tg/search" className="input mt-4 flex items-center gap-2 text-muted"><Search className="h-4 w-4" />Search artist, concert or city</Link>
+      <div className="flex items-center justify-between"><Logo /><span className="flex items-center gap-2 text-[13px] text-muted">{t('Hi, {name}', { name: user?.full_name?.split(' ')[0] })}<Avatar user={user} size={28} /></span></div>
+      <Link to="/tg/search" className="input mt-4 flex items-center gap-2 text-muted"><Search className="h-4 w-4" />{t('Search artist, concert or city')}</Link>
       <Link to="/tg/sell" className="mt-4 flex items-center justify-between rounded-2xl bg-ink p-4 text-bg">
-        <div><p className="font-semibold">Can't make the show?</p><p className="text-[13px] text-bg/70">Sell your tickets to fans</p></div><span className="rounded-xl bg-bg px-3 py-2 text-sm font-semibold text-ink">Sell</span>
+        <div><p className="font-semibold">{t("Can't make the show?")}</p><p className="text-[13px] text-bg/70">{t('Sell your tickets to fans')}</p></div><span className="rounded-xl bg-bg px-3 py-2 text-sm font-semibold text-ink">{t('Sell')}</span>
       </Link>
-      <h2 className="mb-3 mt-7 text-xl font-bold">Featured</h2>
+      <h2 className="mb-3 mt-7 text-xl font-bold">{t('Featured concerts')}</h2>
       <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4">
         {!data ? <div className="w-[78%] shrink-0"><SkeletonCards n={1} /></div> : data.featured.length
           ? data.featured.map((c) => <div key={c.id} className="w-[78%] max-w-[320px] shrink-0 snap-start"><ConcertCard c={c} /></div>)
-          : <p className="text-sm text-muted">No concerts yet — check back soon.</p>}
+          : <p className="text-sm text-muted">{t('No concerts yet')}</p>}
       </div>
       {data?.artists?.length > 0 && <>
-        <h2 className="mb-3 mt-7 text-xl font-bold">Popular artists</h2>
+        <h2 className="mb-3 mt-7 text-xl font-bold">{t('Popular artists')}</h2>
         <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4">{data.artists.map((a) => <ArtistTile key={a.id} a={a} />)}</div>
       </>}
       {data?.upcoming?.length > 0 && <>
-        <h2 className="mb-3 mt-7 text-xl font-bold">Upcoming events</h2>
+        <h2 className="mb-3 mt-7 text-xl font-bold">{t('Upcoming events')}</h2>
         <div className="grid gap-4 sm:grid-cols-2">{data.upcoming.map((c) => <ConcertCard key={c.id} c={c} />)}</div>
       </>}
       {data?.recent_listings?.length > 0 && <>
-        <h2 className="mb-3 mt-7 text-xl font-bold">Available tickets</h2>
+        <h2 className="mb-3 mt-7 text-xl font-bold">{t('Available tickets')}</h2>
         <div className="card divide-y divide-line">{data.recent_listings.map((l) => (
           <Link key={l.id} to={`/tg/concerts/${l.concert.slug}`} className="flex items-center justify-between gap-3 p-3.5">
-            <div className="min-w-0"><p className="truncate text-sm font-semibold">{l.concert.title}</p><p className="text-[12px] text-muted">{l.category} · {l.available} left</p></div>
+            <div className="min-w-0"><p className="truncate text-sm font-semibold">{l.concert.title}</p><p className="text-[12px] text-muted">{l.category} · {t('{n} left', { n: l.available })}</p></div>
             <b className="tabular-nums">${(l.buyer_price_cents / 100).toFixed(0)}</b>
           </Link>
         ))}</div>
@@ -161,6 +165,7 @@ function TgHome() {
 
 function TgSearch() {
   const nav = useNavigate()
+  const { t } = useT()
   const [q, setQ] = useState('')
   const [rows, setRows] = useState(null)
   useEffect(() => {
@@ -170,10 +175,10 @@ function TgSearch() {
   }, [q])
   return (
     <div className="page pt-4">
-      <input className="input" autoFocus placeholder="Search artist, concert, city or venue" value={q} onChange={(e) => setQ(e.target.value)}
+      <input className="input" autoFocus placeholder={t('Search artist, concert, city or venue')} value={q} onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && nav(`/tg/explore?q=${encodeURIComponent(q)}`)} />
       <div className="mt-4 grid gap-4">
-        {rows === null ? <p className="text-sm text-muted">Type to search concerts.</p> : rows.length ? rows.map((c) => <ConcertCard key={c.id} c={c} />) : <Empty title="No results" />}
+        {rows === null ? <p className="text-sm text-muted">{t('Type to search concerts.')}</p> : rows.length ? rows.map((c) => <ConcertCard key={c.id} c={c} />) : <Empty title={t('No results')} />}
       </div>
     </div>
   )
@@ -181,29 +186,35 @@ function TgSearch() {
 
 function TgProfile() {
   const { user, settings } = useApp()
+  const { t, lang, setLang } = useT()
   const support = settings?.telegram?.support_username
   return (
     <div className="page pt-5">
-      <h1 className="text-2xl font-bold">{user.full_name}</h1>
-      <p className="text-sm text-muted">{user.telegram_username ? `@${user.telegram_username}` : 'Telegram account'}{user.email && ` · ${user.email}`}</p>
-      <div className="card mt-5 divide-y divide-line">
-        {[['/tg/account', 'Profile & sign-in'], ['/tg/listings', 'My listings'], ['/tg/orders', 'My orders'], ['/tg/account/wallet', 'Wallet & withdrawals'], ['/tg/account/invoices', 'Invoices'], ['/tg/support', 'Support'], ['/tg/policies/refunds', 'Refund policy'], ['/tg/policies/authenticity', 'Ticket authenticity']]
-          .map(([to, l]) => <Link key={to} to={to} className="flex items-center justify-between p-4 text-[15px] font-medium">{l}<span className="text-muted">›</span></Link>)}
+      <div className="flex items-center gap-4"><Avatar user={user} size={56} />
+        <div><h1 className="text-2xl font-bold">{user.full_name}</h1>
+          <p className="text-sm text-muted">{user.telegram_username ? `@${user.telegram_username}` : t('Telegram account')}{user.email && ` · ${user.email}`}</p></div></div>
+      <div className="mt-5 grid grid-cols-3 gap-2">
+        {LANGS.map((l) => <button key={l.code} onClick={() => setLang(l.code)} className={cls('rounded-xl border px-3 py-2.5 text-sm font-semibold transition', lang === l.code ? 'border-accent bg-accent/10 text-accent' : 'border-line')}>{l.label}</button>)}
       </div>
-      {support && <button className="btn-ghost mt-5 w-full py-3" onClick={() => openExternal(`https://t.me/${support}`)}><MessageCircle className="h-4 w-4" />Message support</button>}
+      <div className="card mt-5 divide-y divide-line">
+        {[['/tg/account', 'Profile & settings'], ['/tg/listings', 'My listings'], ['/tg/orders', 'My orders'], ['/tg/account/wallet', 'Wallet & withdrawals'], ['/tg/account/invoices', 'Invoices'], ['/tg/support', 'Support'], ['/tg/policies/refunds', 'Refund policy'], ['/tg/policies/authenticity', 'Ticket authenticity']]
+          .map(([to, l]) => <Link key={to} to={to} className="flex items-center justify-between p-4 text-[15px] font-medium transition active:bg-raised">{t(l)}<span className="text-muted">›</span></Link>)}
+      </div>
+      {support && <button className="btn-ghost mt-5 w-full py-3" onClick={() => openExternal(`https://t.me/${support}`)}><MessageCircle className="h-4 w-4" />{t('Message support')}</button>}
     </div>
   )
 }
 
 function Outside() {
   const { settings } = useApp()
+  const { t } = useT()
   const url = settings?.telegram?.mini_app_url
   return (
     <div className="page flex min-h-screen flex-col items-center justify-center text-center">
       <Logo />
-      <p className="mt-6 text-lg font-semibold">This is the TicketNest Telegram Mini App</p>
-      <p className="mt-2 max-w-sm text-sm text-muted">Open it from Telegram, or use the website.</p>
-      <div className="mt-6 flex gap-2">{url && <a href={url} className="btn-accent">Open in Telegram</a>}<Link to="/" className="btn-ghost">Go to website</Link></div>
+      <p className="mt-6 text-lg font-semibold">{t('This is the TicketNest Telegram Mini App')}</p>
+      <p className="mt-2 max-w-sm text-sm text-muted">{t('Open it from Telegram, or use the website.')}</p>
+      <div className="mt-6 flex gap-2">{url && <a href={url} className="btn-accent">{t('Open in Telegram')}</a>}<Link to="/" className="btn-ghost">{t('Go to website')}</Link></div>
     </div>
   )
 }

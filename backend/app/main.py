@@ -84,8 +84,9 @@ for r in (auth, account, catalog, selling, orders, admin_catalog, admin_ops, tel
 
 # ---------------------------------------------------------------- background work
 def _expiry_loop() -> None:
-    """Every minute: release tickets held by unpaid orders whose QR (plus grace) expired."""
-    from app.services import orders as svc
+    """Every minute: release tickets held by unpaid orders whose QR (plus grace) expired,
+    and send the daily Telegram report once a day."""
+    from app.services import orders as svc, reports
     while True:
         time.sleep(60)
         try:
@@ -93,8 +94,10 @@ def _expiry_loop() -> None:
                 n = svc.expire_due(db)
                 if n:
                     log.info("Released %d expired checkout(s)", n)
+            with SessionLocal() as db:
+                reports.maybe_send_daily(db)
         except Exception:  # noqa: BLE001
-            log.exception("Expiry job failed")
+            log.exception("Background job failed")
 
 
 def _initial_admin() -> None:

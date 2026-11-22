@@ -51,6 +51,8 @@ async def create_listing(request: Request,
                          payout_method: str = Form(...), payout_account_name: str = Form(...),
                          payout_account_number: str = Form(...), confirm_owner: bool = Form(...),
                          files: list[UploadFile] = File(...),
+                         receipts: list[UploadFile] = File(...),
+                         payout_qr: UploadFile | None = File(None),
                          user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not confirm_owner:
         raise HTTPException(422, "Please confirm the tickets are yours and genuine")
@@ -72,16 +74,23 @@ async def create_listing(request: Request,
     if not tg_name:
         raise HTTPException(422, "Your Telegram username is needed so we can reach you")
     if not files or len(files) > MAX_FILES:
-        raise HTTPException(422, f"Upload 1 to {MAX_FILES} proof files (photos or PDF)")
+        raise HTTPException(422, f"Upload 1 to {MAX_FILES} ticket proof files (photos or PDF)")
+    if not receipts or len(receipts) > MAX_FILES:
+        raise HTTPException(422, "Upload the purchase receipt that shows what you paid for the ticket")
     for label, v in (("your name", contact_name), ("payout method", payout_method),
                      ("account name", payout_account_name), ("account number", payout_account_number)):
         if len(v.strip()) < 2:
             raise HTTPException(422, f"Enter {label}")
 
     stored = []
-    for f in files:
-        data, kind = await storage.read_upload(f, allow_pdf=True)
-        stored.append((storage.save_private(data, kind, "proofs"), kind, (f.filename or "proof")[:200], len(data)))
+    for role, group in (("proof", files), ("receipt", receipts)):
+        for f in group:
+            data, kind = await storage.read_upload(f, allow_pdf=True)
+            stored.append((role, storage.save_private(data, kind, "proofs"), kind, (f.filename or role)[:200], len(data)))
+    qr_key = ""
+    if payout_qr is not None and payout_qr.filename:
+        data, kind = await storage.read_upload(payout_qr, allow_pdf=False)
+        qr_key = storage.save_private(data, kind, "payout-qr")
 
     listing = TicketListing(
         seller_id=user.id, concert_id=concert.id, category_id=cat.id,
@@ -90,16 +99,24 @@ async def create_listing(request: Request,
         notes=clean_text(notes, 2000), status=ListingStatus.pending, contact_name=clean_text(contact_name, 120),
         contact_phone=clean_text(contact_phone, 32), contact_telegram=tg_name,
         payout_method=clean_text(payout_method, 40), payout_account_name=clean_text(payout_account_name, 120),
-        payout_account_number=clean_text(payout_account_number, 64))
-    listing.files = [TicketImage(storage_key=k, content_type=t, original_name=n, size_bytes=s) for k, t, n, s in stored]
+        payout_account_number=clean_text(payout_account_number, 64), payout_qr_key=qr_key or user.payout_qr_key)
+    listing.files = [TicketImage(kind=r, storage_key=k, content_type=t, original_name=n, size_bytes=z) for r, k, t, n, z in stored]
     db.add(listing)
     if not user.telegram_username:
         user.telegram_username = tg_name
+    # remember payout details on the profile for next time
+    user.payout_method = listing.payout_method
+    user.payout_account_name = listing.payout_account_name
+    user.payout_account_number = listing.payout_account_number
+    if qr_key:
+        user.payout_qr_key = qr_key
     db.flush()
     audit.log(db, "listing.create", "listing", listing.id, actor=user,
               data={"price_cents": listing.price_cents, "qty": quantity})
     notify.new_listing(db, listing)
     db.commit()
+    from app.services import email as mail
+    mail.send_listing_submitted(db, listing)
     return listing_owner(db, listing)
 
 

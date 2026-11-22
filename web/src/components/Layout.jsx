@@ -1,104 +1,217 @@
-import { Menu, Moon, Search, Sun, Ticket, User, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Check, ChevronDown, Globe, LogOut, Menu, Moon, Search, Shield, Sun, Ticket, User, Wallet, X } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/App'
+import { LANGS, useT } from '../i18n'
 import { cls } from '../lib/format'
-import { Logo } from './ui'
+import Chatbot from './Chatbot'
+import { PageTransition } from './Motion'
+import { Avatar, Logo } from './ui'
 
-export function SearchBox({ className = '', autoFocus = false, big = false }) {
+export const MINI_APP_FALLBACK = 'https://t.me/TicketNestbot/app'
+export const useMiniAppUrl = () => useApp().settings?.telegram?.mini_app_url || MINI_APP_FALLBACK
+
+export function SearchBox({ className = '', big = false }) {
   const nav = useNavigate()
+  const { t } = useT()
   const [q, setQ] = useState('')
   return (
     <form role="search" className={cls('relative', className)}
       onSubmit={(e) => { e.preventDefault(); nav(`/concerts${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`) }}>
       <Search className={cls('pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted', big ? 'h-5 w-5' : 'h-4 w-4')} />
-      <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus={autoFocus} aria-label="Search concerts"
-        placeholder="Search artist, concert, city or venue"
+      <input value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('Search concerts')}
+        placeholder={t('Search artist, concert, city or venue')}
         className={cls('input pl-10', big ? 'h-14 rounded-2xl text-base shadow-card' : 'h-10 bg-raised')} />
+      {big && <button className="btn-accent absolute right-2 top-2 h-10 px-5">{t('Search')}</button>}
     </form>
+  )
+}
+
+function useOutside(ref, onOut) {
+  useEffect(() => {
+    const h = (e) => ref.current && !ref.current.contains(e.target) && onOut()
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [ref, onOut])
+}
+
+export function LangSwitch({ compact = false, up = false }) {
+  const { lang, setLang } = useT()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useOutside(ref, () => setOpen(false))
+  const cur = LANGS.find((l) => l.code === lang)
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen((o) => !o)} className="flex h-10 items-center gap-1.5 rounded-xl px-2.5 text-sm font-medium text-muted transition hover:bg-raised hover:text-ink" aria-label="Language">
+        <Globe className="h-[18px] w-[18px]" />{!compact && <span>{cur.short}</span>}<ChevronDown className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <div className={cls('pop absolute right-0 z-50 w-40 overflow-hidden rounded-2xl border border-line bg-surface p-1 shadow-lift', up ? 'bottom-12' : 'top-12')}>
+          {LANGS.map((l) => (
+            <button key={l.code} onClick={() => { setLang(l.code); setOpen(false) }}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm hover:bg-raised">
+              {l.label}{l.code === lang && <Check className="h-4 w-4 text-accent" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
 function ThemeToggle() {
   const { dark, applyTheme } = useApp()
   return (
-    <button onClick={() => applyTheme(!dark)} className="grid h-10 w-10 place-items-center rounded-xl text-muted hover:bg-raised hover:text-ink"
-      aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}>
-      {dark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+    <button onClick={() => applyTheme(!dark)} className="grid h-10 w-10 place-items-center rounded-xl text-muted transition hover:bg-raised hover:text-ink"
+      aria-label={dark ? 'Light theme' : 'Dark theme'}>
+      <span className="transition-transform duration-500" style={{ transform: dark ? 'rotate(180deg)' : 'none' }}>
+        {dark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+      </span>
     </button>
+  )
+}
+
+export function TelegramIcon({ className = 'h-4 w-4' }) {
+  return <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden><path d="M21.9 4.3 18.7 19.5c-.2 1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.1-8.2c.4-.4-.1-.6-.6-.2L6.2 13.2 1.4 11.7c-1-.3-1-1 .2-1.5L20.6 3c.9-.3 1.6.2 1.3 1.3Z" /></svg>
+}
+
+function MiniAppButton() {
+  const { t } = useT()
+  const url = useMiniAppUrl()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useOutside(ref, () => setOpen(false))
+  return (
+    <div ref={ref} className="relative hidden md:block">
+      <button onClick={() => setOpen((o) => !o)} className="flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-[#229ED9]/10 px-3 text-sm font-semibold text-[#229ED9] transition hover:-translate-y-px hover:bg-[#229ED9]/15">
+        <TelegramIcon />{t('Telegram app')}
+      </button>
+      {open && (
+        <div className="pop absolute right-0 top-12 z-50 w-64 rounded-2xl border border-line bg-surface p-4 text-center shadow-lift">
+          <p className="text-sm font-semibold">{t('TicketNest in Telegram')}</p>
+          <p className="mt-1 text-[12px] text-muted">{t('Scan with your phone, or open it directly. No download needed.')}</p>
+          <div className="mx-auto mt-3 w-fit rounded-xl bg-white p-2.5"><QRCodeSVG value={url} size={150} /></div>
+          <a href={url} target="_blank" rel="noreferrer" className="btn mt-3 w-full bg-[#229ED9] text-white hover:brightness-110"><TelegramIcon />{t('Open in Telegram')}</a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function UserMenu() {
+  const { user, logout } = useApp()
+  const { t } = useT()
+  const nav = useNavigate()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useOutside(ref, () => setOpen(false))
+  if (!user) return <Link to="/login" className="btn-primary hidden sm:inline-flex">{t('Sign in')}</Link>
+  return (
+    <div ref={ref} className="relative hidden sm:block">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 transition hover:border-ink/20 hover:shadow-card">
+        <Avatar user={user} size={32} /><span className="max-w-[110px] truncate text-sm font-semibold">{user.full_name.split(' ')[0]}</span><ChevronDown className="h-3.5 w-3.5 text-muted" />
+      </button>
+      {open && (
+        <div className="pop absolute right-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-line bg-surface p-1.5 shadow-lift" onClick={() => setOpen(false)}>
+          <div className="flex items-center gap-3 px-3 py-2.5"><Avatar user={user} size={38} /><div className="min-w-0"><p className="truncate text-sm font-semibold">{user.full_name}</p><p className="truncate text-[12px] text-muted">{user.email || (user.telegram_username && `@${user.telegram_username}`)}</p></div></div>
+          <div className="my-1 h-px bg-line" />
+          {[['/account', t('Profile & settings'), User], ['/account/orders', t('My orders'), Ticket], ['/account/listings', t('My listings'), Ticket], ['/account/wallet', t('Wallet'), Wallet]]
+            .map(([to, l, Icon]) => <Link key={to} to={to} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm hover:bg-raised"><Icon className="h-4 w-4 text-muted" />{l}</Link>)}
+          {user.role !== 'customer' && <Link to="/admin" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm hover:bg-raised"><Shield className="h-4 w-4 text-muted" />{t('Admin dashboard')}</Link>}
+          <div className="my-1 h-px bg-line" />
+          <button onClick={() => { logout(); nav('/') }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-bad hover:bg-bad/5"><LogOut className="h-4 w-4" />{t('Sign out')}</button>
+        </div>
+      )}
+    </div>
   )
 }
 
 const NAV = [['/concerts', 'Explore'], ['/artists', 'Artists'], ['/how-it-works', 'How it works']]
 
 export default function Layout() {
-  const { user } = useApp()
+  const { user, logout } = useApp()
+  const { t } = useT()
+  const miniUrl = useMiniAppUrl()
   const [open, setOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const loc = useLocation()
   useEffect(() => { setOpen(false); window.scrollTo(0, 0) }, [loc.pathname])
+  useEffect(() => {
+    const f = () => setScrolled(window.scrollY > 8)
+    window.addEventListener('scroll', f, { passive: true })
+    return () => window.removeEventListener('scroll', f)
+  }, [])
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 border-b border-line bg-bg/85 backdrop-blur-md">
-        <div className="page flex h-16 items-center gap-4">
-          <Link to="/" aria-label="TicketNest home"><Logo /></Link>
-          <nav className="ml-4 hidden items-center gap-1 md:flex">
+      <header className={cls('sticky top-0 z-50 border-b transition-all duration-300', scrolled ? 'border-line bg-bg/85 shadow-card backdrop-blur-xl' : 'border-transparent bg-bg/60 backdrop-blur-md')}>
+        <div className="page flex h-16 items-center gap-3">
+          <Link to="/" aria-label="TicketNest" className="transition hover:opacity-80"><Logo /></Link>
+          <nav className="ml-3 hidden items-center gap-1 lg:flex">
             {NAV.map(([to, label]) => (
-              <NavLink key={to} to={to} className={({ isActive }) => cls('whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition', isActive ? 'text-ink' : 'text-muted hover:text-ink')}>{label}</NavLink>
+              <NavLink key={to} to={to} className={({ isActive }) => cls('relative whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition hover:text-ink', isActive ? 'text-ink after:absolute after:inset-x-3 after:-bottom-[13px] after:h-0.5 after:rounded-full after:bg-accent' : 'text-muted')}>{t(label)}</NavLink>
             ))}
           </nav>
-          <SearchBox className="ml-auto hidden w-[300px] xl:block" />
+          <SearchBox className="ml-auto hidden w-[260px] xl:block" />
           <div className="ml-auto flex items-center gap-1 xl:ml-0">
+            <MiniAppButton />
+            <LangSwitch />
             <ThemeToggle />
-            <Link to="/sell" className="btn-ghost hidden sm:inline-flex"><Ticket className="h-4 w-4" />Sell tickets</Link>
-            {user
-              ? <Link to={user.role !== 'customer' ? '/account' : '/account'} className="btn-primary hidden sm:inline-flex"><User className="h-4 w-4" />{user.full_name.split(' ')[0]}</Link>
-              : <Link to="/login" className="btn-primary hidden sm:inline-flex">Sign in</Link>}
-            <button className="grid h-10 w-10 place-items-center rounded-xl md:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu" aria-expanded={open}>
+            <Link to="/sell" className="btn-ghost hidden md:inline-flex"><Ticket className="h-4 w-4" />{t('Sell tickets')}</Link>
+            <UserMenu />
+            <button className="grid h-10 w-10 place-items-center rounded-xl transition hover:bg-raised lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu" aria-expanded={open}>
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
         {open && (
-          <div className="border-t border-line bg-bg md:hidden">
+          <div className="rise border-t border-line bg-bg lg:hidden">
             <div className="page space-y-1 py-4">
               <SearchBox className="mb-3" />
-              {[...NAV, ['/sell', 'Sell tickets'], user ? ['/account', 'My account'] : ['/login', 'Sign in']].map(([to, label]) => (
-                <Link key={to} to={to} className="block rounded-xl px-3 py-3 text-[15px] font-medium hover:bg-raised">{label}</Link>
+              {[...NAV, ['/sell', 'Sell tickets'], ...(user ? [['/account', 'Profile & settings'], ['/account/orders', 'My orders']] : [['/login', 'Sign in'], ['/register', 'Create account']])].map(([to, label]) => (
+                <Link key={to} to={to} className="block rounded-xl px-3 py-3 text-[15px] font-medium transition hover:bg-raised">{t(label)}</Link>
               ))}
-              {user && user.role !== 'customer' && <Link to="/admin" className="block rounded-xl px-3 py-3 text-[15px] font-medium hover:bg-raised">Admin</Link>}
+              {user && user.role !== 'customer' && <Link to="/admin" className="block rounded-xl px-3 py-3 text-[15px] font-medium hover:bg-raised">{t('Admin dashboard')}</Link>}
+              <a href={miniUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl px-3 py-3 text-[15px] font-semibold text-[#229ED9] hover:bg-raised"><TelegramIcon className="h-5 w-5" />{t('Open in Telegram')}</a>
+              {user && <button onClick={logout} className="block w-full rounded-xl px-3 py-3 text-left text-[15px] font-medium text-bad hover:bg-raised">{t('Sign out')}</button>}
             </div>
           </div>
         )}
       </header>
-      <main className="flex-1"><Outlet /></main>
+      <main className="flex-1"><PageTransition><Outlet /></PageTransition></main>
       <Footer />
+      <Chatbot />
     </div>
   )
 }
 
 function Footer() {
   const { settings, siteName } = useApp()
+  const { t } = useT()
   const support = settings?.telegram?.support_username
+  const miniUrl = useMiniAppUrl()
   return (
     <footer className="mt-24 border-t border-line bg-surface">
-      <div className="page grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="sm:col-span-2 lg:col-span-1">
+      <div className="page grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="sm:col-span-2">
           <Logo />
-          <p className="mt-3 max-w-xs text-sm text-muted">{settings?.site?.tagline || 'The trusted way to buy and sell K-pop concert tickets.'}</p>
+          <p className="mt-3 max-w-xs text-sm text-muted">{t('The trusted way to buy and sell K-pop concert tickets.')}</p>
+          <a href={miniUrl} target="_blank" rel="noreferrer" className="btn mt-5 bg-[#229ED9] text-white hover:brightness-110"><TelegramIcon />{t('Open in Telegram')}</a>
+          <div className="mt-4"><LangSwitch up /></div>
         </div>
-        <FooterCol title="Marketplace" links={[['/concerts', 'Explore concerts'], ['/artists', 'Artists'], ['/sell', 'Sell your tickets'], ['/how-it-works', 'How it works']]} />
-        <FooterCol title="Trust" links={[['/policies/authenticity', 'Ticket authenticity'], ['/policies/refunds', 'Refund policy'], ['/policies/terms', 'Terms of use'], ['/policies/privacy', 'Privacy']]} />
+        <FooterCol title={t('Marketplace')} links={[['/concerts', t('Explore concerts')], ['/artists', t('Artists')], ['/sell', t('Sell your tickets')], ['/how-it-works', t('How it works')]]} />
+        <FooterCol title={t('Trust')} links={[['/policies/authenticity', t('Ticket authenticity')], ['/policies/refunds', t('Refund policy')], ['/policies/terms', t('Terms of use')], ['/policies/privacy', t('Privacy')]]} />
         <div>
-          <p className="eyebrow mb-3">Support</p>
-          {support ? <a href={`https://t.me/${support}`} target="_blank" rel="noreferrer" className="text-sm font-medium text-accent hover:underline">@{support} on Telegram</a>
-            : <p className="text-sm text-muted">Support contact coming soon.</p>}
-          <p className="mt-2 text-sm text-muted">Payments by KHQR · Bakong</p>
+          <p className="eyebrow mb-3">{t('Support')}</p>
+          {support ? <a href={`https://t.me/${support}`} target="_blank" rel="noreferrer" className="text-sm font-medium text-accent hover:underline">@{support}</a>
+            : <p className="text-sm text-muted">{t('Use the chat button for help.')}</p>}
+          <p className="mt-2 text-sm text-muted">{t('Payments by KHQR · Bakong')}</p>
         </div>
       </div>
       <div className="border-t border-line">
         <p className="page py-5 text-[12px] leading-relaxed text-muted">
-          © {new Date().getFullYear()} {siteName}. An independent resale marketplace, not affiliated with any artist, agency, promoter or official ticket seller.
-          Ticket prices on resale may be above or below face value.
+          © {new Date().getFullYear()} {siteName}. {t('An independent resale marketplace, not affiliated with any artist, agency, promoter or official ticket seller. Artist names and logos belong to their owners.')}
         </p>
       </div>
     </footer>
@@ -109,28 +222,7 @@ function FooterCol({ title, links }) {
   return (
     <div>
       <p className="eyebrow mb-3">{title}</p>
-      <ul className="space-y-2">{links.map(([to, l]) => <li key={to}><Link to={to} className="text-sm text-muted hover:text-ink">{l}</Link></li>)}</ul>
+      <ul className="space-y-2">{links.map(([to, l]) => <li key={to}><Link to={to} className="text-sm text-muted transition hover:text-ink">{l}</Link></li>)}</ul>
     </div>
-  )
-}
-
-export function StageArt({ className = '' }) {
-  // Stage beams over a crowd silhouette. Vector art, so it is crisp and light in both themes.
-  return (
-    <svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMid slice" className={className} aria-hidden>
-      <defs>
-        <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".55" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
-      </defs>
-      <rect width="1200" height="520" fill="#0E0B1F" />
-      {[[180, -14], [420, -5], [600, 0], [780, 5], [1020, 14]].map(([x, r], i) => (
-        <g key={x} transform={`rotate(${r} ${x} 0)`} opacity={i === 2 ? 0.5 : 0.28}>
-          <polygon points={`${x - 6},0 ${x + 6},0 ${x + 120},520 ${x - 120},520`} fill="url(#beam)" />
-        </g>
-      ))}
-      <rect x="0" y="0" width="1200" height="6" fill="#6D4BFF" opacity=".9" />
-      {[...Array(9)].map((_, i) => <circle key={i} cx={130 + i * 117} cy="18" r="5" fill="#fff" opacity=".85" />)}
-      <path d="M0 520 V430 Q30 400 60 420 Q80 380 110 410 Q140 370 170 405 Q200 385 230 412 Q255 360 290 400 Q320 380 350 415 Q380 372 410 404 Q440 386 470 418 Q500 368 535 402 Q565 382 595 410 Q625 362 660 400 Q690 384 720 414 Q750 370 785 404 Q815 386 845 416 Q875 366 910 402 Q940 384 970 412 Q1000 372 1035 406 Q1065 388 1095 416 Q1125 376 1160 406 Q1180 396 1200 420 V520Z" fill="#05040C" />
-      <path d="M262 362 l10 -40 l6 40Z M640 356 l8 -46 l8 46Z M902 360 l9 -38 l7 38Z" fill="#05040C" />
-    </svg>
   )
 }

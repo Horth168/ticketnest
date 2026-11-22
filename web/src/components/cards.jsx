@@ -1,6 +1,7 @@
 import { CalendarDays, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useLink } from '../context/App'
+import { useT } from '../i18n'
 import { cls, dayParts, time, usd } from '../lib/format'
 import { Poster } from './ui'
 
@@ -15,11 +16,12 @@ function untilt(e) { e.currentTarget.style.setProperty('--ry', '0deg'); e.curren
 
 export function ConcertCard({ c, className = '' }) {
   const link = useLink()
+  const { t } = useT()
   const d = dayParts(c.starts_at)
   const soldOut = !c.tickets_available
   return (
     <Link to={link(`/concerts/${c.slug}`)} onPointerMove={tilt} onPointerLeave={untilt}
-      className={cls('tilt group block overflow-hidden rounded-2xl border border-line bg-surface hover:shadow-lift', className)}>
+      className={cls('tilt group block overflow-hidden rounded-2xl border border-line bg-surface transition-shadow duration-300 hover:shadow-lift', className)}>
       <div className="relative aspect-[4/3] overflow-hidden bg-raised">
         <Poster src={c.poster_url} title={c.title} artist={c.artist?.name}
           className="transition duration-500 group-hover:scale-[1.03]" />
@@ -27,7 +29,7 @@ export function ConcertCard({ c, className = '' }) {
           <p className="text-[10px] font-bold tracking-wider text-accent">{d.mon}</p>
           <p className="font-display text-xl font-bold leading-none">{d.day}</p>
         </div>
-        {c.status === 'postponed' && <span className="absolute right-3 top-3 rounded-full bg-warn px-2.5 py-1 text-[11px] font-bold text-white">POSTPONED</span>}
+        {c.status === 'postponed' && <span className="absolute right-3 top-3 rounded-full bg-warn px-2.5 py-1 text-[11px] font-bold text-white">{t('POSTPONED')}</span>}
       </div>
       <div className="p-4">
         <p className="eyebrow">{c.artist?.name}</p>
@@ -36,24 +38,33 @@ export function ConcertCard({ c, className = '' }) {
         <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
           <span className="flex items-center gap-1.5 text-[13px] text-muted"><CalendarDays className="h-3.5 w-3.5" />{d.dow} · {time(c.starts_at)}</span>
           {soldOut
-            ? <span className="text-[13px] font-bold tracking-wide text-muted">SOLD OUT</span>
-            : <span className="text-[13px]"><span className="text-muted">from </span><b className="text-[15px]">{usd(c.from_price_cents)}</b></span>}
+            ? <span className="text-[13px] font-bold tracking-wide text-muted">{t('SOLD OUT')}</span>
+            : <span className="text-[13px]"><span className="text-muted">{t('from')} </span><b className="text-[15px]">{usd(c.from_price_cents)}</b></span>}
         </div>
       </div>
     </Link>
   )
 }
 
+export const isLogo = (url) => (url || '').startsWith('/artists/')
+
+export function ArtistImage({ a, className = '' }) {
+  const initials = a.name.replace(/[^A-Za-z0-9 ]/g, '').split(' ').map((w) => w[0]).join('').slice(0, 2)
+  if (!a.image_url) return <span className={cls('font-display text-2xl font-bold text-muted', className)}>{initials || a.name.slice(0, 2)}</span>
+  return isLogo(a.image_url)
+    ? <img src={a.image_url} alt={a.name} loading="lazy" className={cls('h-full w-full object-contain p-[18%] transition duration-500 group-hover:scale-105', className)} />
+    : <img src={a.image_url} alt={a.name} loading="lazy" className={cls('h-full w-full object-cover transition duration-500 group-hover:scale-105', className)} />
+}
+
 export function ArtistTile({ a }) {
   const link = useLink()
-  const initials = a.name.replace(/[^A-Za-z0-9 ]/g, '').split(' ').map((w) => w[0]).join('').slice(0, 2)
   return (
     <Link to={link(`/artists/${a.slug}`)} className="group flex w-[112px] shrink-0 flex-col items-center gap-2.5 text-center">
-      <div className="grid h-[96px] w-[96px] place-items-center overflow-hidden rounded-full border border-line bg-raised ring-accent/0 transition group-hover:ring-4 group-hover:ring-accent/20">
-        {a.image_url ? <img src={a.image_url} alt={a.name} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-          : <span className="font-display text-2xl font-bold text-muted">{initials}</span>}
+      <div className={cls('grid h-[96px] w-[96px] place-items-center overflow-hidden rounded-full border border-line ring-accent/0 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lift group-hover:ring-4 group-hover:ring-accent/25',
+        isLogo(a.image_url) ? 'bg-white' : 'bg-raised')}>
+        <ArtistImage a={a} />
       </div>
-      <span className="line-clamp-1 text-[13px] font-semibold">{a.name}</span>
+      <span className="line-clamp-1 text-[13px] font-semibold transition group-hover:text-accent">{a.name}</span>
     </Link>
   )
 }

@@ -81,9 +81,17 @@ function ListingDetail() {
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6">
           <div className="card p-5">
-            <p className="font-semibold">Ticket proof ({l.files.length})</p>
-            <p className="text-[12px] text-muted">Private — only admins and the seller can open these.</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">{l.files.map((f) => <ProofImage key={f.id} listingId={l.id} f={f} />)}</div>
+            <p className="text-[12px] text-muted">Private — only admins and the seller can open these. Compare the receipt's price with the original price below.</p>
+            {[['proof', 'Ticket proof'], ['receipt', 'Purchase receipt']].map(([kind, title]) => {
+              const files = l.files.filter((f) => (f.kind || 'proof') === kind)
+              return (
+                <div key={kind} className="mt-4">
+                  <p className="font-semibold">{title} ({files.length})</p>
+                  {files.length ? <div className="mt-2 grid gap-3 sm:grid-cols-2">{files.map((f) => <ProofImage key={f.id} listingId={l.id} f={f} />)}</div>
+                    : <p className="mt-1 rounded-xl bg-warn/10 p-3 text-[13px] text-warn">Not provided{kind === 'receipt' ? ' (listing created before receipts were required)' : ''}.</p>}
+                </div>
+              )
+            })}
           </div>
           <div className="card p-5">
             <p className="mb-2 font-semibold">Details</p>
@@ -121,6 +129,7 @@ function ListingDetail() {
               <Row k="Phone" v={l.contact_phone || '—'} />
               <p className="mb-1 mt-4 font-semibold">Payout</p>
               <Row k={l.payout_method} v={`${l.payout_account_name} · ${l.payout_account_number}`} />
+              {l.has_payout_qr ? <PayoutQr src={`/api/admin/listings/${l.id}/payout-qr`} /> : <p className="mt-2 text-[12px] text-muted">No payout QR uploaded.</p>}
             </div>
           ) : <div className="card p-5 text-sm text-muted">TicketNest's own stock (no seller payout).</div>}
         </div>
@@ -139,6 +148,22 @@ function ListingDetail() {
           }}>Save</button>
         </div>}
       </Modal>
+    </div>
+  )
+}
+
+export function PayoutQr({ src }) {
+  const [url, setUrl] = useState(null)
+  useEffect(() => {
+    let u
+    api(src, { raw: true }).then((r) => r.blob()).then((b) => { u = URL.createObjectURL(b); setUrl(u) }).catch(() => setUrl(false))
+    return () => u && URL.revokeObjectURL(u)
+  }, [src])
+  if (url === false) return null
+  return (
+    <div className="mt-3 rounded-2xl border border-line bg-white p-3 text-center">
+      {url ? <img src={url} alt="Seller payout QR" className="mx-auto max-h-64 rounded-lg" /> : <div className="skeleton mx-auto h-48 w-48" />}
+      <p className="mt-2 text-[12px] text-neutral-500">Seller's payout QR — scan with your bank app</p>
     </div>
   )
 }

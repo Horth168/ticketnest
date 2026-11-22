@@ -6,6 +6,7 @@ import { useApp } from '../../context/App'
 import { api, openFile } from '../../lib/api'
 import { dateTime, pct, usd2 } from '../../lib/format'
 import { H, Tabs } from './AdminApp'
+import { PayoutQr } from './Listings'
 
 export default function Ops() {
   return (
@@ -96,6 +97,7 @@ function Withdrawals() {
   const [status, setStatus] = useState('pending')
   const [rows, setRows] = useState(null)
   const [settle, setSettle] = useState(null)
+  const [qr, setQr] = useState(null)
   const load = useCallback(() => api(`/api/admin/withdrawals?status=${status}`).then(setRows), [status])
   useEffect(() => { load() }, [load])
   return (
@@ -109,13 +111,25 @@ function Withdrawals() {
               <div className="min-w-0 flex-1"><p className="font-semibold">#{w.id} · {w.seller.name}</p><p className="text-[12px] text-muted">{w.method} · {w.account_name} · <b>{w.account_number}</b> · {dateTime(w.created_at)}</p>
                 {w.payout_reference && <p className="text-[12px] text-muted">Ref {w.payout_reference}</p>}</div>
               <b className="tabular-nums">{usd2(w.amount_cents)}</b><Badge tone={w.status === 'paid' ? 'good' : w.status === 'pending' ? 'warn' : 'muted'}>{w.status}</Badge>
+              {w.seller.has_payout_qr && <button className="btn-ghost py-1.5" onClick={() => setQr(w)}>Payout QR</button>}
               {w.status === 'pending' && user.role === 'admin' && <><button className="btn-accent py-1.5" onClick={() => setSettle({ w, paid: true })}>Mark paid</button><button className="btn-ghost py-1.5" onClick={() => setSettle({ w, paid: false })}>Reject</button></>}
             </div>
           ))}
         </div>
       )}
       <SettleModal s={settle} onClose={() => setSettle(null)} onDone={() => { setSettle(null); toast('Saved'); load() }} />
+      <QrModal w={qr} onClose={() => setQr(null)} />
     </div>
+  )
+}
+
+function QrModal({ w, onClose }) {
+  if (!w) return null
+  return (
+    <Modal open onClose={onClose} title={`Pay ${w.seller.name} · ${usd2(w.amount_cents)}`}>
+      <p className="text-sm text-muted">{w.method} · {w.account_name} · {w.account_number}</p>
+      <PayoutQr src={`/api/admin/users/${w.seller.id}/payout-qr`} />
+    </Modal>
   )
 }
 
@@ -375,6 +389,11 @@ function SettingsPage() {
             <Field label="Delivery Telegram username" hint="The account that sends tickets to buyers"><input className="input" {...bind('telegram', 'delivery_username')} placeholder="ticketnest" /></Field>
           </div>
           <Field label="Mini App link" hint="From BotFather, e.g. https://t.me/YourBot/app"><input className="input" {...bind('telegram', 'mini_app_url')} /></Field>
+          <div className="grid gap-4 rounded-2xl border border-line p-4 sm:grid-cols-[1fr_160px] sm:items-end">
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={s.telegram.daily_report} onChange={(e) => setS({ ...s, telegram: { ...s.telegram, daily_report: e.target.checked } })} />Send a daily report to the admin group</label>
+            <Field label="Report time (Phnom Penh)"><select className="input" value={s.telegram.daily_report_hour} onChange={(e) => setS({ ...s, telegram: { ...s.telegram, daily_report_hour: Number(e.target.value) } })}>
+              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}</select></Field>
+          </div>
           <div className="flex flex-wrap gap-5 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={s.telegram.admin_alerts} onChange={(e) => setS({ ...s, telegram: { ...s.telegram, admin_alerts: e.target.checked } })} />Admin alerts</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={s.telegram.customer_updates} onChange={(e) => setS({ ...s, telegram: { ...s.telegram, customer_updates: e.target.checked } })} />Customer order updates</label>

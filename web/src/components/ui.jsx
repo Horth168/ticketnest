@@ -1,5 +1,6 @@
 import { Eye, EyeOff, Loader2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useT } from '../i18n'
 import { cls, LISTING_STATUS, ORDER_STATUS } from '../lib/format'
 
 export function Logo({ className = '', compact = false }) {
@@ -23,18 +24,32 @@ export function Badge({ tone = 'muted', children, className = '' }) {
   return <span className={cls('inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-semibold', TONES[tone], className)}>{children}</span>
 }
 export function OrderBadge({ status }) {
+  const { t } = useT()
   const [label, tone] = ORDER_STATUS[status] || [status, 'muted']
-  return <Badge tone={tone}>{label}</Badge>
+  return <Badge tone={tone}>{t(label)}</Badge>
 }
 export function ListingBadge({ status }) {
+  const { t } = useT()
   const [label, tone] = LISTING_STATUS[status] || [status, 'muted']
-  return <Badge tone={tone}>{label}</Badge>
+  return <Badge tone={tone}>{t(label)}</Badge>
+}
+
+const AV_COLORS = ['#6D4BFF', '#E0457B', '#0EA5E9', '#F59E0B', '#10B981', '#8B5CF6']
+export function Avatar({ user, size = 36, className = '' }) {
+  const name = user?.full_name || '?'
+  const initials = name.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  const color = AV_COLORS[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % AV_COLORS.length]
+  return user?.avatar_url
+    ? <img src={user.avatar_url} alt="" width={size} height={size} className={cls('shrink-0 rounded-full object-cover', className)} style={{ width: size, height: size }} />
+    : <span className={cls('grid shrink-0 place-items-center rounded-full font-semibold text-white', className)}
+        style={{ width: size, height: size, background: color, fontSize: size * 0.38 }}>{initials}</span>
 }
 
 export const Spinner = ({ className = 'h-5 w-5' }) => <Loader2 className={cls('animate-spin', className)} aria-label="Loading" />
 
-export function Loading({ label = 'Loading…' }) {
-  return <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted"><Spinner /> {label}</div>
+export function Loading({ label }) {
+  const { t } = useT()
+  return <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted"><Spinner /> {label || t('Loading…')}</div>
 }
 
 export function Empty({ icon: Icon, title, children, action }) {

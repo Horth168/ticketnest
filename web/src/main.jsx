@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { Loading } from './components/ui'
 import { AppProvider } from './context/App'
+import { I18nProvider } from './i18n'
 import Account, { MyInvoices, MyListings, MyOrders, MyWallet, Profile } from './pages/account/Account'
 import { Forgot, Login, Register, Reset } from './pages/Auth'
 import Checkout, { OrderPage, RequireAuth } from './pages/Checkout'
@@ -25,6 +26,7 @@ if (window.Telegram?.WebApp?.initData && !location.pathname.startsWith('/tg')) {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
+      <I18nProvider>
       <AppProvider>
         <Suspense fallback={<Loading />}>
           <Routes>
@@ -59,6 +61,7 @@ createRoot(document.getElementById('root')).render(
           </Routes>
         </Suspense>
       </AppProvider>
+      </I18nProvider>
     </BrowserRouter>
   </StrictMode>,
 )

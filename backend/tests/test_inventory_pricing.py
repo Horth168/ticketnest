@@ -123,7 +123,8 @@ def test_upload_rejects_non_images(client, setup):
         "concert_id": c["id"], "category_id": c["categories"][0]["id"], "original_price": "90", "price": "100",
         "quantity": 1, "contact_name": "Sok", "contact_telegram": "sok_seller", "payout_method": "ABA",
         "payout_account_name": "SOK", "payout_account_number": "0001112", "confirm_owner": "true"},
-        files=[("files", ("evil.png", b"<script>alert(1)</script>", "image/png"))])
+        files=[("files", ("evil.png", b"<script>alert(1)</script>", "image/png")),
+               ("receipts", ("receipt.png", b"<script>", "image/png"))])
     assert r.status_code == 415
 
 
