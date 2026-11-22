@@ -88,12 +88,12 @@ export default function Chatbot() {
   return (
     <>
       <button onClick={() => setOpen((o) => !o)} aria-label={t('Help chat')}
-        className={cls('fixed bottom-[calc(20px+var(--safe-bottom))] right-5 z-[70] grid h-14 w-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_12px_32px_-8px_rgb(var(--accent)/.8)] transition-all duration-300 hover:scale-105 active:scale-95',
+        className={cls('fixed bottom-[calc(80px+var(--safe-bottom))] right-4 z-[70] lg:bottom-[calc(20px+var(--safe-bottom))] lg:right-5 grid h-14 w-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_12px_32px_-8px_rgb(var(--accent)/.8)] transition-all duration-300 hover:scale-105 active:scale-95',
           open && 'rotate-90')}>
         {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
       </button>
       {open && (
-        <div className="pop fixed bottom-[calc(88px+var(--safe-bottom))] right-3 z-[70] flex h-[min(560px,calc(100vh-120px))] w-[calc(100vw-24px)] max-w-[380px] flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-lift sm:right-5">
+        <div className="pop fixed bottom-[calc(148px+var(--safe-bottom))] right-3 z-[70] flex h-[min(560px,calc(100dvh-210px-var(--safe-top)-var(--safe-bottom)))] lg:bottom-[calc(88px+var(--safe-bottom))] lg:h-[min(560px,calc(100vh-120px))] w-[calc(100vw-24px)] max-w-[380px] flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-lift sm:right-5">
           <div className="flex items-center gap-3 border-b border-line bg-ink px-4 py-3.5 text-bg">
             <span className="grid h-9 w-9 place-items-center rounded-full bg-accent text-accent-ink"><Sparkles className="h-4 w-4" /></span>
             <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{t('TicketNest help')}</p><p className="text-[12px] text-bg/60">{t('Usually answers instantly')}</p></div>

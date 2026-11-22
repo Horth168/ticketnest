@@ -57,7 +57,8 @@ h1, h2, h3, .font-display { font-family: theme('fontFamily.display'); letter-spa
          font-semibold transition-all duration-200 ease-out hover:-translate-y-px active:translate-y-0 active:scale-[.97]
          disabled:pointer-events-none disabled:opacity-50; }
   .btn-primary { @apply btn bg-ink text-bg shadow-sm hover:shadow-lift; }
-  .btn-accent { @apply btn bg-accent text-accent-ink shadow-[0_8px_24px_-10px_rgb(var(--accent)/.7)] hover:shadow-[0_14px_32px_-10px_rgb(var(--accent)/.8)] hover:brightness-110; }
+  .btn-accent { @apply btn bg-accent text-white shadow-[0_8px_24px_-10px_rgb(var(--accent)/.7)] hover:shadow-[0_14px_32px_-10px_rgb(var(--accent)/.8)] hover:brightness-110;
+    background-image: linear-gradient(115deg, rgb(var(--accent)) 0%, #B24BE8 60%, #E0529F 100%); }
   .btn-ghost { @apply btn border border-line bg-surface hover:border-ink/20 hover:bg-raised; }
   /* light sweep across primary buttons on hover */
   .btn-accent::after, .btn-primary::after { content: ''; position: absolute; inset: 0; transform: translateX(-120%);
@@ -122,3 +123,30 @@ h1, h2, h3, .font-display { font-family: theme('fontFamily.display'); letter-spa
 .bar-grow { transform-origin: bottom; animation: grow-y .7s cubic-bezier(.2,.7,.2,1) both; }
 @keyframes draw { from { stroke-dashoffset: var(--len, 1200) } to { stroke-dashoffset: 0 } }
 .line-draw { stroke-dasharray: var(--len, 1200); animation: draw 1.2s ease-out both; }
+
+/* K-pop "holographic" accent: violet -> pink -> cyan, like lightsticks and photocard foil */
+:root { --holo: linear-gradient(115deg, #7C5CFF 0%, #C45BFF 35%, #FF6EC7 65%, #7AE6FF 100%); }
+.holo-bg { background-image: var(--holo); background-size: 160% 160%; animation: holo-shift 8s ease-in-out infinite; }
+.holo-text { background-image: var(--holo); -webkit-background-clip: text; background-clip: text; color: transparent; }
+@layer components {
+  .btn-holo { @apply btn text-white; background-image: var(--holo); background-size: 160% 160%;
+    animation: holo-shift 8s ease-in-out infinite; box-shadow: 0 10px 28px -10px rgba(214, 90, 200, .75); }
+  .btn-holo:hover { filter: brightness(1.08); box-shadow: 0 14px 34px -10px rgba(214, 90, 200, .9); }
+}
+/* 1px gradient ring around a rounded element (search pill, badges) */
+.holo-ring { position: relative; isolation: isolate; }
+.holo-ring::before { content: ''; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; padding: 1px;
+  background: linear-gradient(115deg, rgba(124,92,255,.9), rgba(255,110,199,.75), rgba(122,230,255,.8));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); pointer-events: none; }
+.holo-ring:focus-within::before { box-shadow: 0 0 0 4px rgba(196, 91, 255, .25); }
+@keyframes holo-shift { 0%,100% { background-position: 0% 50% } 50% { background-position: 100% 50% } }
+
+/* Installed app (home screen): the status bar is white text over the page, so keep a dark band behind it in light mode */
+.safe-header::before { content: ''; position: absolute; inset: 0 0 auto; height: var(--safe-top); background: #0A0910; }
+.dark .safe-header::before { background: transparent; }
+@media (display-mode: standalone) {
+  html, body { overscroll-behavior-y: none; }
+  body { -webkit-user-select: none; user-select: none; }
+  input, textarea, [contenteditable], p, td { -webkit-user-select: text; user-select: text; }
+}

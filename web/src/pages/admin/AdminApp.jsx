@@ -79,7 +79,7 @@ export default function AdminApp() {
       </aside>
 
       {/* phone / tablet top bar */}
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur-xl lg:hidden">
+      <header className="sticky top-0 z-40 flex h-[calc(56px+var(--safe-top))] items-center gap-3 border-b border-line bg-surface/90 px-4 pt-[var(--safe-top)] backdrop-blur-xl lg:hidden">
         <button onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-xl border border-line" aria-label="Menu"><Menu className="h-5 w-5" /></button>
         <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Admin</p><p className="-mt-0.5 truncate font-semibold">{current?.[1] || 'TicketNest'}</p></div>
         <Avatar user={user} size={34} />
@@ -87,7 +87,7 @@ export default function AdminApp() {
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div className="absolute inset-y-0 left-0 flex w-[82%] max-w-[300px] flex-col bg-surface shadow-lift" style={{ animation: 'drawer .28s cubic-bezier(.2,.7,.2,1)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="absolute inset-y-0 left-0 flex w-[82%] max-w-[300px] flex-col bg-surface pb-[var(--safe-bottom)] pt-[var(--safe-top)] shadow-lift" style={{ animation: 'drawer .28s cubic-bezier(.2,.7,.2,1)' }} onClick={(e) => e.stopPropagation()}>
             <div className="flex h-14 items-center justify-between px-5"><Logo /><button onClick={() => setOpen(false)} aria-label="Close"><X className="h-5 w-5" /></button></div>
             <div className="flex-1 overflow-y-auto py-2"><NavList admin={admin} onPick={() => setOpen(false)} /></div>
             <Footer user={user} logout={logout} dark={dark} applyTheme={applyTheme} />
@@ -95,7 +95,7 @@ export default function AdminApp() {
         </div>
       )}
 
-      <main className="min-w-0 p-4 sm:p-6 lg:p-8">
+      <main className="min-w-0 p-4 pb-[calc(16px+var(--safe-bottom))] sm:p-6 lg:p-8">
         <Suspense fallback={<Loading />}>
           <PageTransition>
             <Routes>

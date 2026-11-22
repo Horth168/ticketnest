@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Globe, LogOut, Menu, Moon, Search, Shield, Sun, Ticket, User, Wallet, X } from 'lucide-react'
+import { Check, ChevronDown, Compass, Globe, Home as HomeIcon, LogOut, Menu, Moon, Plus, Search, Shield, Sun, Ticket, User, Wallet, X } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -17,13 +17,19 @@ export function SearchBox({ className = '', big = false }) {
   const { t } = useT()
   const [q, setQ] = useState('')
   return (
-    <form role="search" className={cls('relative', className)}
+    <form role="search" className={cls('relative', big && 'holo-ring rounded-full', className)}
       onSubmit={(e) => { e.preventDefault(); nav(`/concerts${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`) }}>
-      <Search className={cls('pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted', big ? 'h-5 w-5' : 'h-4 w-4')} />
-      <input value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('Search concerts')}
-        placeholder={t('Search artist, concert, city or venue')}
-        className={cls('input pl-10', big ? 'h-14 rounded-2xl text-base shadow-card' : 'h-10 bg-raised')} />
-      {big && <button className="btn-accent absolute right-2 top-2 h-10 px-5">{t('Search')}</button>}
+      <Search className={cls('pointer-events-none absolute top-1/2 -translate-y-1/2', big ? 'left-5 h-5 w-5 text-white/60' : 'left-3.5 h-4 w-4 text-muted')} />
+      <input value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('Search concerts')} enterKeyHint="search"
+        placeholder={t(big ? 'Search artist, concert or city' : 'Search artist, concert, city or venue')}
+        className={big
+          ? 'h-14 w-full truncate rounded-full border-0 bg-[#0B0A12]/70 pl-12 pr-16 text-[16px] text-white outline-none backdrop-blur-xl transition placeholder:text-white/45 focus:bg-[#0B0A12]/85 sm:h-[60px] sm:pr-36'
+          : 'input h-10 bg-raised pl-10'} />
+      {big && (
+        <button aria-label={t('Search')} className="btn-holo absolute right-1.5 top-1.5 h-11 w-11 !rounded-full !p-0 sm:h-12 sm:w-auto sm:!px-6">
+          <Search className="h-5 w-5 sm:hidden" /><span className="hidden sm:inline">{t('Search')}</span>
+        </button>
+      )}
     </form>
   )
 }
@@ -144,8 +150,8 @@ export default function Layout() {
     return () => window.removeEventListener('scroll', f)
   }, [])
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className={cls('sticky top-0 z-50 border-b transition-all duration-300', scrolled ? 'border-line bg-bg/85 shadow-card backdrop-blur-xl' : 'border-transparent bg-bg/60 backdrop-blur-md')}>
+    <div className="flex min-h-screen flex-col pb-[calc(64px+var(--safe-bottom))] lg:pb-0">
+      <header className={cls('safe-header sticky top-0 z-50 border-b pt-[var(--safe-top)] transition-all duration-300', scrolled ? 'border-line bg-bg/85 shadow-card backdrop-blur-xl' : 'border-transparent bg-bg/60 backdrop-blur-md')}>
         <div className="page flex h-16 items-center gap-3">
           <Link to="/" aria-label="TicketNest" className="transition hover:opacity-80"><Logo /></Link>
           <nav className="ml-3 hidden items-center gap-1 lg:flex">
@@ -181,6 +187,7 @@ export default function Layout() {
       </header>
       <main className="flex-1"><PageTransition><Outlet /></PageTransition></main>
       <Footer />
+      <TabBar />
       <Chatbot />
     </div>
   )
@@ -200,11 +207,47 @@ function Footer() {
           {links.map(([to, l]) => <Link key={to} to={to} className="transition hover:text-ink">{l}</Link>)}
           {support && <a href={`https://t.me/${support}`} target="_blank" rel="noreferrer" className="transition hover:text-ink">{t('Support')}</a>}
         </nav>
-        <LangSwitch up />
       </div>
       <p className="page border-t border-line py-4 text-[11.5px] leading-relaxed text-muted">
         © {new Date().getFullYear()} {siteName} · {t('Independent resale marketplace, not affiliated with any artist or official seller.')}
       </p>
     </footer>
+  )
+}
+
+// Phone / tablet: app-style bottom tabs (thumb reach), with Sell as the raised centre action.
+function TabBar() {
+  const { user } = useApp()
+  const { t } = useT()
+  const loc = useLocation()
+  const p = loc.pathname
+  const tabs = [
+    ['/', t('Home'), HomeIcon, p === '/'],
+    ['/concerts', t('Explore'), Compass, p.startsWith('/concerts') || p.startsWith('/artists')],
+    ['/sell', t('Sell'), Plus, p.startsWith('/sell'), true],
+    [user ? '/account/orders' : '/login', t('Tickets'), Ticket, p.startsWith('/account/orders') || p.startsWith('/orders')],
+    [user ? '/account' : '/login', user ? t('Account') : t('Sign in'), User,
+      (p.startsWith('/account') && !p.startsWith('/account/orders')) || p === '/login' || p === '/register'],
+  ]
+  return (
+    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-[60] border-t border-line/80 bg-surface/85 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden">
+      <div className="mx-auto grid h-16 max-w-md grid-cols-5 px-2">
+        {tabs.map(([to, label, Icon, on, center]) => center ? (
+          <Link key="sell" to={to} aria-label={label} className="group flex flex-col items-center justify-center">
+            <span className="holo-bg -mt-6 grid h-[52px] w-[52px] place-items-center rounded-full text-white shadow-[0_10px_24px_-6px_rgba(214,90,200,.7)] ring-4 ring-bg transition group-active:scale-90">
+              <Icon className="h-6 w-6" strokeWidth={2.4} />
+            </span>
+            <span className={cls('mt-0.5 text-[10.5px] font-semibold', on ? 'text-ink' : 'text-muted')}>{label}</span>
+          </Link>
+        ) : (
+          <Link key={label} to={to} aria-current={on ? 'page' : undefined}
+            className={cls('relative flex min-w-0 flex-col items-center justify-center gap-1 transition active:scale-90', on ? 'text-accent' : 'text-muted')}>
+            {on && <span className="absolute top-1.5 h-1 w-1 rounded-full bg-accent shadow-[0_0_8px_2px_rgb(var(--accent)/.6)]" />}
+            <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2.3 : 1.8} />
+            <span className="max-w-full truncate px-1 text-[10.5px] font-semibold">{label}</span>
+          </Link>
+        ))}
+      </div>
+    </nav>
   )
 }

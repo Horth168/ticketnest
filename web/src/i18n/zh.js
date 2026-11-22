@@ -448,4 +448,6 @@ export default {
   '{n} sold': '已售 {n}',
   '{n} tickets available': '有 {n} 张门票',
   '{n} upcoming': '{n} 场即将举行',
+  'Account': '账户',
+  'Trending': '热门',
 }

@@ -28,24 +28,32 @@ export default function Home() {
     <>
       <section className="relative overflow-hidden text-white">
         <LiveStage />
-        <div className="page relative flex min-h-[600px] flex-col justify-center py-24 sm:min-h-[640px]">
-          <p className="rise inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[12px] font-semibold tracking-wide text-white/80 backdrop-blur">
+        <div className="page relative flex min-h-[560px] flex-col justify-center py-16 sm:min-h-[640px] sm:py-24">
+          <p className="rise holo-ring inline-flex w-fit items-center gap-2 rounded-full bg-white/[.06] px-3 py-1.5 text-[12px] font-semibold tracking-wide text-white/85 backdrop-blur">
             <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7CF29C] opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-[#7CF29C]" /></span>
             {t('K-pop concert ticket resale · Cambodia')}
           </p>
           <h1 className="rise mt-5 max-w-3xl text-[40px] font-bold leading-[1.04] sm:text-[66px]" style={{ animationDelay: '80ms' }}>
-            {t('Your seat at the show,')} <span className="bg-gradient-to-r from-[#C4B5FF] via-[#FF9BD0] to-[#8BEAF0] bg-clip-text text-transparent">{t("from fans who can't go.")}</span>
+            {t('Your seat at the show,')} <span className="holo-text">{t("from fans who can't go.")}</span>
           </h1>
           <p className="rise mt-5 max-w-xl text-[17px] leading-relaxed text-white/75" style={{ animationDelay: '160ms' }}>
             {t('Every listing is checked by our team before it goes live. Pay securely with KHQR and get your ticket through Telegram.')}
           </p>
-          <div className="rise mt-8 max-w-xl text-ink" style={{ animationDelay: '240ms' }}><SearchBox big /></div>
-          <div className="rise mt-6 flex flex-wrap gap-2" style={{ animationDelay: '320ms' }}>
-            {(data?.artists || []).slice(0, 7).map((a) => (
-              <Link key={a.id} to={`/artists/${a.slug}`} className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-[13px] font-medium text-white/85 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/15">{a.name}</Link>
-            ))}
-          </div>
-          <div className="rise mt-10 flex flex-wrap gap-x-8 gap-y-3 text-[13px] text-white/70" style={{ animationDelay: '400ms' }}>
+          <div className="rise mt-8 max-w-xl" style={{ animationDelay: '240ms' }}><SearchBox big /></div>
+          {data?.artists?.length > 0 && (
+            <div className="rise no-scrollbar -mx-4 mt-5 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0" style={{ animationDelay: '320ms' }}>
+              <span className="shrink-0 text-[11px] font-bold uppercase tracking-[.16em] text-white/50">{t('Trending')}</span>
+              {data.artists.slice(0, 7).map((a) => (
+                <Link key={a.id} to={`/artists/${a.slug}`} className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/[.06] py-1 pl-1 pr-3 text-[13px] font-medium text-white/90 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/15">
+                  {a.image_url && !isLogo(a.image_url)
+                    ? <img src={a.image_url} alt="" className="h-6 w-6 rounded-full object-cover" loading="lazy" />
+                    : <span className="holo-bg grid h-6 w-6 place-items-center rounded-full text-[10px] font-bold text-white">{a.name.slice(0, 1)}</span>}
+                  {a.name}
+                </Link>
+              ))}
+            </div>
+          )}
+          <div className="rise mt-8 grid grid-cols-1 gap-2.5 text-[13px] text-white/70 sm:mt-10 sm:flex sm:flex-wrap sm:gap-x-8" style={{ animationDelay: '400ms' }}>
             {[[ShieldCheck, t('Every listing reviewed')], [Zap, t('Instant KHQR payment')], [MessageCircle, t('Delivered via Telegram')]].map(([Icon, l]) => (
               <span key={l} className="flex items-center gap-2"><Icon className="h-4 w-4 text-[#C4B5FF]" />{l}</span>
             ))}

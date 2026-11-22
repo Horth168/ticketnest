@@ -448,4 +448,6 @@ export default {
   '{n} sold': 'លក់បាន {n}',
   '{n} tickets available': 'មានសំបុត្រ {n}',
   '{n} upcoming': 'ខាងមុខ {n}',
+  'Account': 'គណនី',
+  'Trending': 'ពេញនិយម',
 }

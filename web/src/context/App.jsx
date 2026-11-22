@@ -51,7 +51,7 @@ export function AppProvider({ children }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(16px+var(--safe-bottom))] z-[100] flex flex-col items-center gap-2 px-4">
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(84px+var(--safe-bottom))] z-[100] lg:bottom-[calc(16px+var(--safe-bottom))] flex flex-col items-center gap-2 px-4">
         {toasts.map((t) => (
           <div key={t.id} role="status"
             className={`rise pointer-events-auto max-w-md rounded-xl px-4 py-3 text-sm font-medium shadow-lift ${t.kind === 'error' ? 'bg-bad text-white' : 'bg-ink text-bg'}`}>
