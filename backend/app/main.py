@@ -133,6 +133,7 @@ def _startup() -> None:
         from app.services import demo
         with SessionLocal() as db:
             demo.seed_once(db)
+            demo.to_draft_once(db)
     except Exception:  # noqa: BLE001  (demo content must never stop the API starting)
         log.exception("Demo content could not be created")
     threading.Thread(target=_expiry_loop, name="expiry", daemon=True).start()

@@ -14,12 +14,15 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import (Artist, Concert, ConcertStatus, ListingStatus, PlatformSetting, Review, ReviewStatus,
-                        TicketCategory, TicketListing, TicketType)
+from app.models import (Artist, AuditLog, Concert, ConcertStatus, ListingStatus, OrderItem, PlatformSetting, Review,
+                        ReviewStatus, TicketCategory, TicketListing, TicketType)
 
 log = logging.getLogger("ticketnest.demo")
 FLAG = "demo_seeded_v1"
+DRAFT_FLAG = "demo_to_draft_v1"
 SLUG = "demo-bts-world-tour-kuala-lumpur"
+DRAFT_SLUG = "bts-world-tour-kuala-lumpur"
+DEMO_NOTE = "Demo listing, not for sale."
 
 # category, description, face value (USD), stadium zones, demo listings: (seat, price USD, qty)
 CATEGORIES = [
@@ -75,11 +78,42 @@ def seed_once(db: Session) -> bool:
                 db.add(TicketListing(seller_id=None, concert_id=c.id, category_id=cat.id,
                                      original_price_cents=face * 100, price_cents=price * 100, quantity=qty,
                                      seat_info=seat, ticket_type=TicketType.e_ticket, status=ListingStatus.available,
-                                     notes="Demo listing, not for sale."))
+                                     notes=DEMO_NOTE))
     if not db.query(Review.id).filter(Review.is_sample.is_(True)).first():
         for name, rating, text, role in SAMPLE_REVIEWS:
             db.add(Review(name=name, rating=rating, text=text, role=role, status=ReviewStatus.pending, is_sample=True))
     db.add(PlatformSetting(key=FLAG, value={"done": True}))
     db.commit()
     log.info("Demo concert and sample reviews created (staff-only)")
+    return True
+
+
+def to_draft_once(db: Session) -> bool:
+    """The owner asked to turn the demo into a real concert. Make it an ordinary UNPUBLISHED draft:
+    the invented demo tickets, demo poster and demo text are removed; the venue layout, seat map and
+    categories stay. It only goes on sale after an admin enters the official details, publishes it and
+    adds real tickets. Runs once."""
+    if db.get(PlatformSetting, DRAFT_FLAG):
+        return False
+    c = db.query(Concert).filter_by(slug=SLUG).first()
+    if c is not None:
+        demo_ids = [l.id for l in db.query(TicketListing).filter_by(concert_id=c.id, seller_id=None, notes=DEMO_NOTE).all()]
+        used = {i for (i,) in db.query(OrderItem.listing_id).filter(OrderItem.listing_id.in_(demo_ids)).all()} if demo_ids else set()
+        removed = 0
+        for l in db.query(TicketListing).filter(TicketListing.id.in_([i for i in demo_ids if i not in used])).all():
+            db.delete(l)
+            removed += 1
+        c.is_demo = False
+        c.is_published = False
+        c.is_featured = False
+        c.title = "BTS World Tour · Kuala Lumpur"
+        c.poster_url = ""
+        c.description = ""
+        if not db.query(Concert.id).filter(Concert.slug == DRAFT_SLUG, Concert.id != c.id).first():
+            c.slug = DRAFT_SLUG
+        db.add(AuditLog(actor_label="system", action="concert.demo_to_draft", entity="concert", entity_id=str(c.id),
+                        data={"removed_demo_listings": removed}))
+        log.info("Demo concert #%s is now an unpublished draft (%d demo tickets removed)", c.id, removed)
+    db.add(PlatformSetting(key=DRAFT_FLAG, value={"done": True}))
+    db.commit()
     return True

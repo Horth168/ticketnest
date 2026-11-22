@@ -132,3 +132,23 @@ def test_client_error_endpoint(client):
     assert client.post("/api/client-errors", json={"message": "Oops", "page": "/"}).status_code == 204
     assert client.post("/api/client-errors", json={"message": "x" * 600}).status_code == 422
     assert make_user  # fixture import kept for parity
+
+
+def test_demo_becomes_unpublished_draft_without_fake_tickets(client, setup):
+    with SessionLocal() as s:
+        demo.seed_once(s)
+        assert demo.to_draft_once(s) and not demo.to_draft_once(s)   # only once
+        c = s.query(Concert).filter_by(slug=demo.DRAFT_SLUG).one()
+        assert not c.is_demo and not c.is_published and c.poster_url == "" and "DEMO" not in c.title
+        assert s.query(TicketListing).filter_by(concert_id=c.id).count() == 0
+        assert len(c.categories) == 6 and c.seat_layout == "stadium"
+    assert client.get(f"/api/concerts/{demo.DRAFT_SLUG}").status_code == 404          # customers: hidden
+    d = client.get(f"/api/concerts/{demo.DRAFT_SLUG}", headers=setup["admin"]).json()  # staff: preview
+    assert d["preview"] and not d["is_demo"] and d["listings"] == []
+    # publishing is the admin's choice once the real details are in
+    a = client.get("/api/admin/concerts", headers=setup["admin"]).json()
+    draft = next(x for x in a if x["slug"] == demo.DRAFT_SLUG)
+    body = {k: draft[k] for k in ("artist_id", "title", "venue", "city", "country", "starts_at", "seat_layout")}
+    body.update(is_published=True, categories=[{"id": x["id"], "name": x["name"], "map_zones": x["map_zones"]} for x in draft["categories"]])
+    assert client.put(f"/api/admin/concerts/{draft['id']}", headers=setup["admin"], json=body).json()["is_published"]
+    assert client.get(f"/api/concerts/{demo.DRAFT_SLUG}").status_code == 200
