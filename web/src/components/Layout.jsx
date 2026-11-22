@@ -2,7 +2,8 @@ import { ArrowLeftRight, Check, ChevronDown, Compass, Globe, Home as HomeIcon, L
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useApp } from '../context/App'
+import { useApp, useLink } from '../context/App'
+import { haptic } from '../lib/telegram'
 import { LANGS, useT } from '../i18n'
 import { cls } from '../lib/format'
 import Chatbot from './Chatbot'
@@ -14,11 +15,12 @@ export const useMiniAppUrl = () => useApp().settings?.telegram?.mini_app_url || 
 
 export function SearchBox({ className = '', big = false }) {
   const nav = useNavigate()
+  const link = useLink()
   const { t } = useT()
   const [q, setQ] = useState('')
   return (
     <form role="search" className={cls('relative', big && 'holo-ring rounded-full', className)}
-      onSubmit={(e) => { e.preventDefault(); nav(`/concerts${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`) }}>
+      onSubmit={(e) => { e.preventDefault(); nav(link(`/concerts${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`)) }}>
       <Search className={cls('pointer-events-none absolute top-1/2 -translate-y-1/2', big ? 'left-5 h-5 w-5 text-white/60' : 'left-3.5 h-4 w-4 text-muted')} />
       <input value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('Search concerts')} enterKeyHint="search"
         placeholder={t(big ? 'Search artist, concert or city' : 'Search artist, concert, city or venue')}
@@ -217,33 +219,35 @@ function Footer() {
 
 // Phone / tablet: app-style bottom tabs (thumb reach). The raised centre button opens Buy / Sell,
 // because TicketNest is a two-sided marketplace, not only a place to sell.
-function TabBar() {
+export function TabBar({ tg = false }) {
   const { user } = useApp()
   const { t } = useT()
+  const link = useLink()
   const loc = useLocation()
   const [sheet, setSheet] = useState(false)
   useEffect(() => setSheet(false), [loc.pathname])
-  const p = loc.pathname
+  const p = tg ? loc.pathname.replace(/^\/tg/, '') || '/' : loc.pathname
   const tabs = [
-    ['/', t('Home'), HomeIcon, p === '/'],
+    ['/', t('Home'), HomeIcon, p === '/' || p === ''],
     ['/concerts', t('Explore'), Compass, p.startsWith('/concerts') || p.startsWith('/artists')],
     [null, t('Buy · Sell'), ArrowLeftRight, p.startsWith('/sell') || p.startsWith('/checkout')],
     ['/tickets', t('Tickets'), Ticket, p.startsWith('/tickets') || p.startsWith('/orders')],
-    [user ? '/account' : '/login', user ? t('Account') : t('Sign in'), User, p.startsWith('/account') || p === '/login' || p === '/register'],
+    tg ? ['/profile', t('Profile'), User, p.startsWith('/profile') || p.startsWith('/account') || p.startsWith('/listings')]
+      : [user ? '/account' : '/login', user ? t('Account') : t('Sign in'), User, p.startsWith('/account') || p === '/login' || p === '/register'],
   ]
   return (
     <>
-      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-[80] border-t border-line/80 bg-surface/85 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden">
+      <nav aria-label="Main" className={cls('fixed inset-x-0 bottom-0 z-[80] border-t border-line/80 bg-surface/85 pb-[var(--safe-bottom)] backdrop-blur-xl', !tg && 'lg:hidden')}>
         <div className="mx-auto grid h-16 max-w-md grid-cols-5 px-2">
           {tabs.map(([to, label, Icon, on]) => !to ? (
-            <button key="trade" onClick={() => setSheet((o) => !o)} aria-label={label} aria-expanded={sheet} className="group flex flex-col items-center justify-center">
+            <button key="trade" onClick={() => { haptic('light'); setSheet((o) => !o) }} aria-label={label} aria-expanded={sheet} className="group flex flex-col items-center justify-center">
               <span className="holo-bg -mt-6 grid h-[52px] w-[52px] place-items-center rounded-full text-white shadow-[0_10px_24px_-6px_rgba(214,90,200,.7)] ring-4 ring-bg transition group-active:scale-90">
                 <Icon className={cls('h-6 w-6 transition-transform duration-300', sheet && 'rotate-180')} strokeWidth={2.3} />
               </span>
               <span className={cls('mt-0.5 whitespace-nowrap text-[10.5px] font-semibold', on || sheet ? 'text-ink' : 'text-muted')}>{label}</span>
             </button>
           ) : (
-            <Link key={label} to={to} aria-current={on ? 'page' : undefined}
+            <Link key={label} to={link(to)} aria-current={on ? 'page' : undefined} onClick={() => haptic('light')}
               className={cls('relative flex min-w-0 flex-col items-center justify-center gap-1 transition active:scale-90', on ? 'text-accent' : 'text-muted')}>
               {on && <span className="absolute top-1.5 h-1 w-1 rounded-full bg-accent shadow-[0_0_8px_2px_rgb(var(--accent)/.6)]" />}
               <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2.3 : 1.8} />
@@ -259,6 +263,7 @@ function TabBar() {
 
 function TradeSheet({ onClose }) {
   const { t } = useT()
+  const link = useLink()
   useEffect(() => {
     const k = (e) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', k)
@@ -275,7 +280,7 @@ function TradeSheet({ onClose }) {
         style={{ animation: 'sheet-up .28s cubic-bezier(.2,.8,.2,1)' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={t('Buy · Sell')}>
         <div className="grid grid-cols-2 gap-2.5">
           {cards.map(([to, Icon, title, sub, tone]) => (
-            <Link key={to} to={to} onClick={onClose} className="group rounded-2xl border border-line bg-raised p-4 transition active:scale-[.97]">
+            <Link key={to} to={link(to)} onClick={onClose} className="group rounded-2xl border border-line bg-raised p-4 transition active:scale-[.97]">
               <span className={cls('grid h-11 w-11 place-items-center rounded-xl', tone)}><Icon className="h-5 w-5" /></span>
               <p className="mt-3 font-display text-[15px] font-bold">{title}</p>
               <p className="mt-0.5 text-[12px] leading-snug text-muted">{sub}</p>
@@ -283,8 +288,8 @@ function TradeSheet({ onClose }) {
           ))}
         </div>
         <div className="mt-2 grid grid-cols-2 gap-2.5 text-[13px] font-semibold">
-          <Link to="/tickets" onClick={onClose} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-muted transition hover:bg-raised hover:text-ink"><Ticket className="h-4 w-4" />{t('My tickets')}</Link>
-          <Link to="/account/listings" onClick={onClose} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-muted transition hover:bg-raised hover:text-ink"><Tag className="h-4 w-4" />{t('My listings')}</Link>
+          <Link to={link('/tickets')} onClick={onClose} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-muted transition hover:bg-raised hover:text-ink"><Ticket className="h-4 w-4" />{t('My tickets')}</Link>
+          <Link to={link('/account/listings')} onClick={onClose} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-muted transition hover:bg-raised hover:text-ink"><Tag className="h-4 w-4" />{t('My listings')}</Link>
         </div>
       </div>
     </div>

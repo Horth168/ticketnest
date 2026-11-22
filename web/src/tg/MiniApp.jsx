@@ -2,11 +2,10 @@
 // - signs in with Telegram's signed initData (validated on the server)
 // - follows Telegram's light/dark theme, safe areas, BackButton, MainButton and haptics
 // - bottom tab bar instead of the website header
-import { Home as HomeIcon, MessageCircle, Plus, Search, Ticket, User } from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { MyTickets } from '../pages/Tickets'
-import { ArtistTile, ConcertCard, SkeletonCards } from '../components/cards'
+import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { ConcertCard } from '../components/cards'
 import { Empty, Loading, Logo, Spinner } from '../components/ui'
 import { BaseProvider, useApp } from '../context/App'
 import { api } from '../lib/api'
@@ -15,9 +14,11 @@ import { haptic, inTelegram, openExternal, tg } from '../lib/telegram'
 import Account, { MyInvoices, MyListings, MyOrders, MyWallet, Profile } from '../pages/account/Account'
 import Checkout, { OrderPage, RequireAuth } from '../pages/Checkout'
 import Concert, { Artist } from '../pages/Concert'
-import Explore from '../pages/Explore'
-import { useHome } from '../pages/Home'
-import { Policy, Support } from '../pages/Info'
+import Explore, { Artists } from '../pages/Explore'
+import Home from '../pages/Home'
+import TicketsPage from '../pages/Tickets'
+import { TabBar } from '../components/Layout'
+import { HowItWorks, Policy, Support } from '../pages/Info'
 import { LANGS, useT } from '../i18n'
 import { Avatar } from '../components/ui'
 import Sell from '../pages/Sell'
@@ -66,15 +67,13 @@ function useBackButton() {
   useEffect(() => {
     const bb = tg()?.BackButton
     if (!bb || !inTelegram()) return
-    const root = ['/tg', '/tg/', '/tg/explore', '/tg/sell', '/tg/orders', '/tg/profile'].includes(loc.pathname)
+    const root = ['/tg', '/tg/', '/tg/explore', '/tg/concerts', '/tg/sell', '/tg/orders', '/tg/tickets', '/tg/profile'].includes(loc.pathname)
     const back = () => { haptic('light'); nav(-1) }
     root ? bb.hide() : bb.show()
     bb.onClick(back)
     return () => bb.offClick(back)
   }, [loc.pathname, nav])
 }
-
-const TABS = [['/tg', 'Home', HomeIcon, true], ['/tg/explore', 'Explore', Search], ['/tg/sell', 'Sell', Plus], ['/tg/orders', 'Orders', Ticket], ['/tg/profile', 'Profile', User]]
 
 export default function MiniApp() {
   const state = useTelegramShell()
@@ -90,15 +89,19 @@ export default function MiniApp() {
     <BaseProvider value="/tg">
       <div className="min-h-screen pb-[calc(84px+var(--safe-bottom))] pt-[var(--safe-top)]">
         <Routes>
-          <Route index element={<TgHome />} />
+          <Route index element={<><Home /><ReviewsGap /></>} />
           <Route path="explore" element={<Explore compact />} />
+          <Route path="concerts" element={<Explore compact />} />
+          <Route path="artists" element={<Artists />} />
+          <Route path="tickets" element={<RequireAuth><TicketsPage /></RequireAuth>} />
+          <Route path="how-it-works" element={<HowItWorks />} />
           <Route path="search" element={<TgSearch />} />
           <Route path="concerts/:slug" element={<Concert />} />
           <Route path="artists/:slug" element={<Artist />} />
           <Route path="checkout/:listingId" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="orders/:number" element={<RequireAuth><OrderPage /></RequireAuth>} />
           <Route path="sell" element={<RequireAuth><Sell /></RequireAuth>} />
-          <Route path="orders" element={<RequireAuth><div className="page pt-5"><MyTickets title={t('My tickets')} /></div></RequireAuth>} />
+          <Route path="orders" element={<RequireAuth><TicketsPage /></RequireAuth>} />
           <Route path="listings" element={<RequireAuth><div className="page pt-5"><h1 className="mb-4 text-2xl font-bold">{t('My listings')}</h1><MyListings /></div></RequireAuth>} />
           <Route path="account" element={<RequireAuth><Account /></RequireAuth>}>
             <Route index element={<Profile />} /><Route path="orders" element={<MyOrders />} /><Route path="listings" element={<MyListings />} />
@@ -107,60 +110,11 @@ export default function MiniApp() {
           <Route path="profile" element={<RequireAuth><TgProfile /></RequireAuth>} />
           <Route path="support" element={<Support />} />
           <Route path="policies/:slug" element={<Policy />} />
-          <Route path="*" element={<TgHome />} />
+          <Route path="*" element={<Home />} />
         </Routes>
       </div>
-      {!hideTabs && (
-        <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-bg/95 pb-[var(--safe-bottom)] backdrop-blur">
-          <div className="mx-auto grid max-w-lg grid-cols-5">
-            {TABS.map(([to, label, Icon, end]) => (
-              <NavLink key={to} to={to} end={end} onClick={() => haptic('light')}
-                className={({ isActive }) => cls('group flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold transition', isActive ? 'text-accent' : 'text-muted')}>
-                <Icon className="h-[22px] w-[22px] transition-transform duration-200 group-active:scale-90" />{t(label)}
-              </NavLink>
-            ))}
-          </div>
-        </nav>
-      )}
+      {!hideTabs && <TabBar tg />}
     </BaseProvider>
-  )
-}
-
-function TgHome() {
-  const { data } = useHome()
-  const { user } = useApp()
-  const { t } = useT()
-  return (
-    <div className="page pt-4">
-      <div className="flex items-center justify-between"><Logo /><span className="flex items-center gap-2 text-[13px] text-muted">{t('Hi, {name}', { name: user?.full_name?.split(' ')[0] })}<Avatar user={user} size={28} /></span></div>
-      <Link to="/tg/search" className="input mt-4 flex items-center gap-2 text-muted"><Search className="h-4 w-4" />{t('Search artist, concert or city')}</Link>
-      <Link to="/tg/sell" className="mt-4 flex items-center justify-between rounded-2xl bg-ink p-4 text-bg">
-        <div><p className="font-semibold">{t("Can't make the show?")}</p><p className="text-[13px] text-bg/70">{t('Sell your tickets to fans')}</p></div><span className="rounded-xl bg-bg px-3 py-2 text-sm font-semibold text-ink">{t('Sell')}</span>
-      </Link>
-      <h2 className="mb-3 mt-7 text-xl font-bold">{t('Featured concerts')}</h2>
-      <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4">
-        {!data ? <div className="w-[78%] shrink-0"><SkeletonCards n={1} /></div> : data.featured.length
-          ? data.featured.map((c) => <div key={c.id} className="w-[78%] max-w-[320px] shrink-0 snap-start"><ConcertCard c={c} /></div>)
-          : <p className="text-sm text-muted">{t('No concerts yet')}</p>}
-      </div>
-      {data?.artists?.length > 0 && <>
-        <h2 className="mb-3 mt-7 text-xl font-bold">{t('Popular artists')}</h2>
-        <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4">{data.artists.map((a) => <ArtistTile key={a.id} a={a} />)}</div>
-      </>}
-      {data?.upcoming?.length > 0 && <>
-        <h2 className="mb-3 mt-7 text-xl font-bold">{t('Upcoming events')}</h2>
-        <div className="grid gap-4 sm:grid-cols-2">{data.upcoming.map((c) => <ConcertCard key={c.id} c={c} />)}</div>
-      </>}
-      {data?.recent_listings?.length > 0 && <>
-        <h2 className="mb-3 mt-7 text-xl font-bold">{t('Available tickets')}</h2>
-        <div className="card divide-y divide-line">{data.recent_listings.map((l) => (
-          <Link key={l.id} to={`/tg/concerts/${l.concert.slug}`} className="flex items-center justify-between gap-3 p-3.5">
-            <div className="min-w-0"><p className="truncate text-sm font-semibold">{l.concert.title}</p><p className="text-[12px] text-muted">{l.category} · {t('{n} left', { n: l.available })}</p></div>
-            <b className="tabular-nums">${(l.buyer_price_cents / 100).toFixed(0)}</b>
-          </Link>
-        ))}</div>
-      </>}
-    </div>
   )
 }
 
@@ -198,7 +152,7 @@ function TgProfile() {
         {LANGS.map((l) => <button key={l.code} onClick={() => setLang(l.code)} className={cls('rounded-xl border px-3 py-2.5 text-sm font-semibold transition', lang === l.code ? 'border-accent bg-accent/10 text-accent' : 'border-line')}>{l.label}</button>)}
       </div>
       <div className="card mt-5 divide-y divide-line">
-        {[['/tg/account', 'Profile & settings'], ['/tg/listings', 'My listings'], ['/tg/orders', 'My orders'], ['/tg/account/wallet', 'Wallet & withdrawals'], ['/tg/account/invoices', 'Invoices'], ['/tg/support', 'Support'], ['/tg/policies/refunds', 'Refund policy'], ['/tg/policies/authenticity', 'Ticket authenticity']]
+        {[['/tg/account', 'Profile & settings'], ['/tg/listings', 'My listings'], ['/tg/tickets', 'My tickets'], ['/tg/account/wallet', 'Wallet & withdrawals'], ['/tg/account/invoices', 'Invoices'], ['/tg/support', 'Support'], ['/tg/policies/refunds', 'Refund policy'], ['/tg/policies/authenticity', 'Ticket authenticity']]
           .map(([to, l]) => <Link key={to} to={to} className="flex items-center justify-between p-4 text-[15px] font-medium transition active:bg-raised">{t(l)}<span className="text-muted">›</span></Link>)}
       </div>
       {support && <button className="btn-ghost mt-5 w-full py-3" onClick={() => openExternal(`https://t.me/${support}`)}><MessageCircle className="h-4 w-4" />{t('Message support')}</button>}
@@ -221,3 +175,6 @@ function Outside() {
 }
 
 export { Loading }
+
+// the website home already ends with the reviews slider; this only adds breathing room above the tab bar
+function ReviewsGap() { return <div className="h-6" /> }

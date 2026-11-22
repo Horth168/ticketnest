@@ -8,7 +8,8 @@ import LiveStage from '../components/LiveStage'
 import { Reveal } from '../components/Motion'
 import ReviewsSection from '../components/Reviews'
 import { Empty, ErrorNote } from '../components/ui'
-import { useApp } from '../context/App'
+import { useApp, useLink } from '../context/App'
+import { inTelegram } from '../lib/telegram'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
 import { dateShort, usd } from '../lib/format'
@@ -21,6 +22,7 @@ export function useHome() {
 }
 
 export default function Home() {
+  const link = useLink()
   const { data, error } = useHome()
   const { settings } = useApp()
   const { t } = useT()
@@ -45,7 +47,7 @@ export default function Home() {
             <div className="rise no-scrollbar -mx-4 mt-5 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0" style={{ animationDelay: '320ms' }}>
               <span className="shrink-0 text-[11px] font-bold uppercase tracking-[.16em] text-white/50">{t('Trending')}</span>
               {data.artists.slice(0, 7).map((a) => (
-                <Link key={a.id} to={`/artists/${a.slug}`} className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/[.06] py-1 pl-1 pr-3 text-[13px] font-medium text-white/90 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/15">
+                <Link key={a.id} to={link(`/artists/${a.slug}`)} className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/[.06] py-1 pl-1 pr-3 text-[13px] font-medium text-white/90 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/15">
                   {a.image_url && !isLogo(a.image_url)
                     ? <img src={a.image_url} alt="" className="h-6 w-6 rounded-full object-cover" loading="lazy" />
                     : <span className="holo-bg grid h-6 w-6 place-items-center rounded-full text-[10px] font-bold text-white">{a.name.slice(0, 1)}</span>}
@@ -89,7 +91,7 @@ export default function Home() {
           <Section title={t('Recently listed tickets')} to="/concerts?available=1">
             <Reveal className="card divide-y divide-line overflow-hidden">
               {data.recent_listings.map((l) => (
-                <Link key={l.id} to={`/concerts/${l.concert.slug}`} className="group flex items-center gap-4 p-4 transition hover:bg-raised">
+                <Link key={l.id} to={link(`/concerts/${l.concert.slug}`)} className="group flex items-center gap-4 p-4 transition hover:bg-raised">
                   <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/10 font-display text-sm font-bold text-accent transition group-hover:scale-105">{l.category.slice(0, 4)}</div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{l.concert.title}</p>
@@ -109,13 +111,13 @@ export default function Home() {
         {data?.categories?.length > 0 && (
           <Section title={t('Ticket categories on sale')}>
             <div className="flex flex-wrap gap-2">
-              {data.categories.map((c) => <Link key={c.name} to={`/concerts?category=${encodeURIComponent(c.name)}`} className="chip">{c.name}<span className="text-muted">{c.listings}</span></Link>)}
+              {data.categories.map((c) => <Link key={c.name} to={link(`/concerts?category=${encodeURIComponent(c.name)}`)} className="chip">{c.name}<span className="text-muted">{c.listings}</span></Link>)}
             </div>
           </Section>
         )}
 
         <HowItWorksStrip markup={markup} />
-        <TelegramPromo />
+        {!inTelegram() && <TelegramPromo />}
 
         <Reveal as="section" className="relative mt-20 overflow-hidden rounded-3xl bg-ink p-8 text-bg sm:p-12">
           <div className="glow absolute -right-20 -top-20 h-72 w-72 rounded-full bg-accent/40 blur-3xl" />
@@ -125,7 +127,7 @@ export default function Home() {
               <h2 className="mt-3 text-3xl font-bold sm:text-4xl">{t('Sell your tickets to real fans.')}</h2>
               <p className="mt-3 max-w-lg text-bg/70">{t('List in a few minutes. Our team reviews your ticket, handles payment and delivery, and pays you after the buyer receives the ticket.')}</p>
             </div>
-            <div className="md:text-right"><Link to="/sell" className="btn bg-bg px-6 py-3.5 text-ink hover:-translate-y-0.5 hover:shadow-lift">{t('Start selling')} <ArrowRight className="h-4 w-4" /></Link></div>
+            <div className="md:text-right"><Link to={link('/sell')} className="btn bg-bg px-6 py-3.5 text-ink hover:-translate-y-0.5 hover:shadow-lift">{t('Start selling')} <ArrowRight className="h-4 w-4" /></Link></div>
           </div>
         </Reveal>
 
@@ -137,6 +139,7 @@ export default function Home() {
 }
 
 function ArtistMarquee({ artists }) {
+  const link = useLink()
   const { t } = useT()
   // repeat the set so one copy is always wider than the screen, then loop by exactly one copy (-50%)
   const reps = Math.max(2, Math.ceil(16 / artists.length)) * 2
@@ -147,7 +150,7 @@ function ArtistMarquee({ artists }) {
       <div className="marquee-mask overflow-hidden">
         <div className="marquee flex w-max items-center gap-3 py-1 hover:[animation-play-state:paused] sm:gap-4">
           {list.map((a, i) => (
-            <Link key={`${a.id}-${i}`} to={`/artists/${a.slug}`} title={a.name} aria-hidden={i >= artists.length || undefined}
+            <Link key={`${a.id}-${i}`} to={link(`/artists/${a.slug}`)} title={a.name} aria-hidden={i >= artists.length || undefined}
               tabIndex={i >= artists.length ? -1 : undefined}
               className="group flex h-14 w-36 shrink-0 items-center justify-center gap-2.5 rounded-2xl border border-black/[.06] bg-white px-4 shadow-[0_1px_2px_rgba(0,0,0,.04)] transition duration-300 hover:-translate-y-0.5 hover:shadow-card sm:h-16 sm:w-44">
               {a.image_url && isLogo(a.image_url)
@@ -166,12 +169,13 @@ function ArtistMarquee({ artists }) {
 }
 
 function Section({ title, to, children, className = 'mt-16' }) {
+  const link = useLink()
   const { t } = useT()
   return (
     <section className={className}>
       <Reveal className="mb-5 flex items-end justify-between gap-4">
         <h2 className="text-[26px] font-bold">{title}</h2>
-        {to && <Link to={to} className="group flex items-center gap-1 text-sm font-semibold text-accent">{t('See all')} <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>}
+        {to && <Link to={link(to)} className="group flex items-center gap-1 text-sm font-semibold text-accent">{t('See all')} <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>}
       </Reveal>
       {children}
     </section>
@@ -226,6 +230,7 @@ function TelegramPromo() {
 }
 
 function TrustBlock() {
+  const link = useLink()
   const { t } = useT()
   return (
     <section className="mt-16 grid gap-4 md:grid-cols-3">
@@ -234,7 +239,7 @@ function TrustBlock() {
         [CreditCard, t('Clear refund rules'), t('If a concert is cancelled or a ticket is not delivered, our refund policy applies.'), '/policies/refunds']]
         .map(([Icon, title, d, to], i) => (
           <Reveal key={title} delay={i * 90}>
-            <Link to={to} className="card card-hover flex h-full gap-4 p-5">
+            <Link to={link(to)} className="card card-hover flex h-full gap-4 p-5">
               <Icon className="mt-0.5 h-5 w-5 shrink-0 text-good" />
               <div><p className="font-semibold">{title}</p><p className="mt-1 text-sm text-muted">{d}</p></div>
             </Link>
@@ -246,11 +251,12 @@ function TrustBlock() {
 
 // Two sides of the marketplace, given equal weight.
 function BuySell() {
+  const link = useLink()
   const { t } = useT()
   return (
     <div className="mt-8 grid gap-3 sm:mt-12 sm:grid-cols-2 sm:gap-4">
       <Reveal className="h-full">
-        <Link to="/concerts" className="group relative flex h-full items-center gap-4 overflow-hidden rounded-3xl p-5 text-white shadow-card transition hover:-translate-y-0.5 hover:shadow-lift sm:p-6">
+        <Link to={link('/concerts')} className="group relative flex h-full items-center gap-4 overflow-hidden rounded-3xl p-5 text-white shadow-card transition hover:-translate-y-0.5 hover:shadow-lift sm:p-6">
           <span className="holo-bg absolute inset-0" />
           <span className="absolute -right-8 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
           <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 backdrop-blur"><ShoppingBag className="h-6 w-6" /></span>
@@ -263,7 +269,7 @@ function BuySell() {
         </Link>
       </Reveal>
       <Reveal delay={80} className="h-full">
-        <Link to="/sell" className="group relative flex h-full items-center gap-4 overflow-hidden rounded-3xl bg-ink p-5 text-bg shadow-card transition hover:-translate-y-0.5 hover:shadow-lift sm:p-6">
+        <Link to={link('/sell')} className="group relative flex h-full items-center gap-4 overflow-hidden rounded-3xl bg-ink p-5 text-bg shadow-card transition hover:-translate-y-0.5 hover:shadow-lift sm:p-6">
           <span className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent/40 blur-3xl" />
           <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-bg/10"><Tag className="h-6 w-6" /></span>
           <span className="relative min-w-0 flex-1">
