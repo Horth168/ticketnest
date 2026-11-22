@@ -28,3 +28,4 @@ API.txt
 !**/requirements*.txt
 khqr*.jpg
 /telegram-miniapp-640x360.png
+!web/public/robots.txt

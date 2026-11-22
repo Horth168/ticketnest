@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /tg
+Disallow: /account
+Disallow: /checkout
+Disallow: /orders
+Disallow: /tickets
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Sitemap: https://ticketnest-api.onrender.com/sitemap.xml
