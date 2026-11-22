@@ -6,7 +6,7 @@ import Layout from './components/Layout'
 import { Loading } from './components/ui'
 import { AppProvider } from './context/App'
 import { I18nProvider } from './i18n'
-import Account, { MyInvoices, MyListings, MyOrders, MyWallet, Profile } from './pages/account/Account'
+import Account, { MyInvoices, MyListings, MyWallet, Profile } from './pages/account/Account'
 import { Forgot, Login, Register, Reset } from './pages/Auth'
 import Checkout, { OrderPage, RequireAuth } from './pages/Checkout'
 import Concert, { Artist } from './pages/Concert'
@@ -14,6 +14,7 @@ import Explore, { Artists } from './pages/Explore'
 import Home from './pages/Home'
 import { HowItWorks, NotFound, Policy, Support } from './pages/Info'
 import Sell from './pages/Sell'
+import TicketsPage from './pages/Tickets'
 
 const AdminApp = lazy(() => import('./pages/admin/AdminApp'))
 const MiniApp = lazy(() => import('./tg/MiniApp'))
@@ -41,9 +42,10 @@ createRoot(document.getElementById('root')).render(
               <Route path="checkout/:listingId" element={<RequireAuth><Checkout /></RequireAuth>} />
               <Route path="orders/:number" element={<RequireAuth><OrderPage /></RequireAuth>} />
               <Route path="sell" element={<RequireAuth><Sell /></RequireAuth>} />
+              <Route path="tickets" element={<RequireAuth><TicketsPage /></RequireAuth>} />
               <Route path="account" element={<RequireAuth><Account /></RequireAuth>}>
                 <Route index element={<Profile />} />
-                <Route path="orders" element={<MyOrders />} />
+                <Route path="orders" element={<Navigate to="/tickets" replace />} />
                 <Route path="listings" element={<MyListings />} />
                 <Route path="wallet" element={<MyWallet />} />
                 <Route path="invoices" element={<MyInvoices />} />

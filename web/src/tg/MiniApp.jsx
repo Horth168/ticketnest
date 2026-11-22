@@ -5,6 +5,7 @@
 import { Home as HomeIcon, MessageCircle, Plus, Search, Ticket, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { MyTickets } from '../pages/Tickets'
 import { ArtistTile, ConcertCard, SkeletonCards } from '../components/cards'
 import { Empty, Loading, Logo, Spinner } from '../components/ui'
 import { BaseProvider, useApp } from '../context/App'
@@ -97,7 +98,7 @@ export default function MiniApp() {
           <Route path="checkout/:listingId" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="orders/:number" element={<RequireAuth><OrderPage /></RequireAuth>} />
           <Route path="sell" element={<RequireAuth><Sell /></RequireAuth>} />
-          <Route path="orders" element={<RequireAuth><div className="page pt-5"><h1 className="mb-4 text-2xl font-bold">{t('My orders')}</h1><MyOrders /></div></RequireAuth>} />
+          <Route path="orders" element={<RequireAuth><div className="page pt-5"><MyTickets title={t('My tickets')} /></div></RequireAuth>} />
           <Route path="listings" element={<RequireAuth><div className="page pt-5"><h1 className="mb-4 text-2xl font-bold">{t('My listings')}</h1><MyListings /></div></RequireAuth>} />
           <Route path="account" element={<RequireAuth><Account /></RequireAuth>}>
             <Route index element={<Profile />} /><Route path="orders" element={<MyOrders />} /><Route path="listings" element={<MyListings />} />

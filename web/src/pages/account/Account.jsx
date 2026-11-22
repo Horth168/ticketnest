@@ -10,7 +10,7 @@ import { cls, dateLong, dateShort, dateTime, usd2 } from '../../lib/format'
 import { inTelegram } from '../../lib/telegram'
 import { openFile } from '../../lib/api'
 
-const TABS = [['', 'Profile', User], ['/orders', 'My orders', Ticket], ['/listings', 'My listings', Receipt], ['/wallet', 'Wallet', Wallet], ['/invoices', 'Invoices', FileText]]
+const TABS = [['', 'Profile', User], ['/listings', 'My listings', Receipt], ['/wallet', 'Wallet', Wallet], ['/invoices', 'Invoices', FileText]]
 export const PAYOUT_NOTE = 'You are paid when a buyer purchases your ticket and receives it, not when you submit the listing. Your earnings then move to your wallet and you can request a withdrawal.'
 
 export default function Account() {

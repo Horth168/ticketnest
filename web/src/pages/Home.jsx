@@ -1,4 +1,4 @@
-import { ArrowRight, BadgeCheck, CreditCard, MessageCircle, ShieldCheck, Sparkles, Ticket, Upload, Zap } from 'lucide-react'
+import { ArrowRight, BadgeCheck, CreditCard, MessageCircle, ShieldCheck, ShoppingBag, Sparkles, Tag, Ticket, Upload, Zap } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -65,6 +65,7 @@ export default function Home() {
 
       <div className="page">
         <ErrorNote error={error} />
+        <BuySell />
         <Section title={t('Featured concerts')} to="/concerts" className="mt-14">
           {!data ? <Grid><SkeletonCards n={3} /></Grid>
             : data.featured.length ? <Grid>{data.featured.map((c, i) => <Reveal key={c.id} delay={i * 80}><ConcertCard c={c} /></Reveal>)}</Grid>
@@ -238,5 +239,39 @@ function TrustBlock() {
           </Reveal>
         ))}
     </section>
+  )
+}
+
+// Two sides of the marketplace, given equal weight.
+function BuySell() {
+  const { t } = useT()
+  return (
+    <div className="mt-8 grid gap-3 sm:mt-12 sm:grid-cols-2 sm:gap-4">
+      <Reveal className="h-full">
+        <Link to="/concerts" className="group relative flex h-full items-center gap-4 overflow-hidden rounded-3xl p-5 text-white shadow-card transition hover:-translate-y-0.5 hover:shadow-lift sm:p-6">
+          <span className="holo-bg absolute inset-0" />
+          <span className="absolute -right-8 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
+          <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 backdrop-blur"><ShoppingBag className="h-6 w-6" /></span>
+          <span className="relative min-w-0 flex-1">
+            <span className="block text-[11px] font-bold uppercase tracking-[.16em] text-white/80">{t('Buy from fans')}</span>
+            <span className="mt-0.5 block font-display text-xl font-bold">{t('Buy tickets')}</span>
+            <span className="mt-1 block text-[13px] leading-snug text-white/85">{t('Every listing is checked by our team. Pay with KHQR and get your ticket through Telegram.')}</span>
+          </span>
+          <ArrowRight className="relative h-5 w-5 shrink-0 transition group-hover:translate-x-1" />
+        </Link>
+      </Reveal>
+      <Reveal delay={80} className="h-full">
+        <Link to="/sell" className="group relative flex h-full items-center gap-4 overflow-hidden rounded-3xl bg-ink p-5 text-bg shadow-card transition hover:-translate-y-0.5 hover:shadow-lift sm:p-6">
+          <span className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent/40 blur-3xl" />
+          <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-bg/10"><Tag className="h-6 w-6" /></span>
+          <span className="relative min-w-0 flex-1">
+            <span className="block text-[11px] font-bold uppercase tracking-[.16em] text-bg/60">{t('Sell to fans')}</span>
+            <span className="mt-0.5 block font-display text-xl font-bold">{t('Sell tickets')}</span>
+            <span className="mt-1 block text-[13px] leading-snug text-bg/70">{t("Can't go? List your ticket in minutes. You're paid after the buyer receives it.")}</span>
+          </span>
+          <ArrowRight className="relative h-5 w-5 shrink-0 transition group-hover:translate-x-1" />
+        </Link>
+      </Reveal>
+    </div>
   )
 }

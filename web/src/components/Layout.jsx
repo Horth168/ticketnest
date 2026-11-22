@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Compass, Globe, Home as HomeIcon, LogOut, Menu, Moon, Plus, Search, Shield, Sun, Ticket, User, Wallet, X } from 'lucide-react'
+import { ArrowLeftRight, Check, ChevronDown, Compass, Globe, Home as HomeIcon, LogOut, Menu, Moon, Search, Shield, ShoppingBag, Sun, Tag, Ticket, User, Wallet, X } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -123,7 +123,7 @@ function UserMenu() {
         <div className="pop absolute right-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-line bg-surface p-1.5 shadow-lift" onClick={() => setOpen(false)}>
           <div className="flex items-center gap-3 px-3 py-2.5"><Avatar user={user} size={38} /><div className="min-w-0"><p className="truncate text-sm font-semibold">{user.full_name}</p><p className="truncate text-[12px] text-muted">{user.email || (user.telegram_username && `@${user.telegram_username}`)}</p></div></div>
           <div className="my-1 h-px bg-line" />
-          {[['/account', t('Profile & settings'), User], ['/account/orders', t('My orders'), Ticket], ['/account/listings', t('My listings'), Ticket], ['/account/wallet', t('Wallet'), Wallet]]
+          {[['/account', t('Profile & settings'), User], ['/tickets', t('My tickets'), Ticket], ['/account/listings', t('My listings'), Tag], ['/account/wallet', t('Wallet'), Wallet]]
             .map(([to, l, Icon]) => <Link key={to} to={to} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm hover:bg-raised"><Icon className="h-4 w-4 text-muted" />{l}</Link>)}
           {user.role !== 'customer' && <Link to="/admin" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm hover:bg-raised"><Shield className="h-4 w-4 text-muted" />{t('Admin dashboard')}</Link>}
           <div className="my-1 h-px bg-line" />
@@ -134,7 +134,7 @@ function UserMenu() {
   )
 }
 
-const NAV = [['/concerts', 'Explore'], ['/artists', 'Artists'], ['/how-it-works', 'How it works']]
+const NAV = [['/concerts', 'Buy tickets'], ['/artists', 'Artists'], ['/how-it-works', 'How it works']]
 
 export default function Layout() {
   const { user, logout } = useApp()
@@ -175,7 +175,7 @@ export default function Layout() {
           <div className="rise border-t border-line bg-bg lg:hidden">
             <div className="page space-y-1 py-4">
               <SearchBox className="mb-3" />
-              {[...NAV, ['/sell', 'Sell tickets'], ...(user ? [['/account', 'Profile & settings'], ['/account/orders', 'My orders']] : [['/login', 'Sign in'], ['/register', 'Create account']])].map(([to, label]) => (
+              {[...NAV, ['/sell', 'Sell tickets'], ...(user ? [['/tickets', 'My tickets'], ['/account/listings', 'My listings'], ['/account', 'Profile & settings']] : [['/login', 'Sign in'], ['/register', 'Create account']])].map(([to, label]) => (
                 <Link key={to} to={to} className="block rounded-xl px-3 py-3 text-[15px] font-medium transition hover:bg-raised">{t(label)}</Link>
               ))}
               {user && user.role !== 'customer' && <Link to="/admin" className="block rounded-xl px-3 py-3 text-[15px] font-medium hover:bg-raised">{t('Admin dashboard')}</Link>}
@@ -215,39 +215,78 @@ function Footer() {
   )
 }
 
-// Phone / tablet: app-style bottom tabs (thumb reach), with Sell as the raised centre action.
+// Phone / tablet: app-style bottom tabs (thumb reach). The raised centre button opens Buy / Sell,
+// because TicketNest is a two-sided marketplace, not only a place to sell.
 function TabBar() {
   const { user } = useApp()
   const { t } = useT()
   const loc = useLocation()
+  const [sheet, setSheet] = useState(false)
+  useEffect(() => setSheet(false), [loc.pathname])
   const p = loc.pathname
   const tabs = [
     ['/', t('Home'), HomeIcon, p === '/'],
     ['/concerts', t('Explore'), Compass, p.startsWith('/concerts') || p.startsWith('/artists')],
-    ['/sell', t('Sell'), Plus, p.startsWith('/sell'), true],
-    [user ? '/account/orders' : '/login', t('Tickets'), Ticket, p.startsWith('/account/orders') || p.startsWith('/orders')],
-    [user ? '/account' : '/login', user ? t('Account') : t('Sign in'), User,
-      (p.startsWith('/account') && !p.startsWith('/account/orders')) || p === '/login' || p === '/register'],
+    [null, t('Buy · Sell'), ArrowLeftRight, p.startsWith('/sell') || p.startsWith('/checkout')],
+    ['/tickets', t('Tickets'), Ticket, p.startsWith('/tickets') || p.startsWith('/orders')],
+    [user ? '/account' : '/login', user ? t('Account') : t('Sign in'), User, p.startsWith('/account') || p === '/login' || p === '/register'],
   ]
   return (
-    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-[60] border-t border-line/80 bg-surface/85 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden">
-      <div className="mx-auto grid h-16 max-w-md grid-cols-5 px-2">
-        {tabs.map(([to, label, Icon, on, center]) => center ? (
-          <Link key="sell" to={to} aria-label={label} className="group flex flex-col items-center justify-center">
-            <span className="holo-bg -mt-6 grid h-[52px] w-[52px] place-items-center rounded-full text-white shadow-[0_10px_24px_-6px_rgba(214,90,200,.7)] ring-4 ring-bg transition group-active:scale-90">
-              <Icon className="h-6 w-6" strokeWidth={2.4} />
-            </span>
-            <span className={cls('mt-0.5 text-[10.5px] font-semibold', on ? 'text-ink' : 'text-muted')}>{label}</span>
-          </Link>
-        ) : (
-          <Link key={label} to={to} aria-current={on ? 'page' : undefined}
-            className={cls('relative flex min-w-0 flex-col items-center justify-center gap-1 transition active:scale-90', on ? 'text-accent' : 'text-muted')}>
-            {on && <span className="absolute top-1.5 h-1 w-1 rounded-full bg-accent shadow-[0_0_8px_2px_rgb(var(--accent)/.6)]" />}
-            <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2.3 : 1.8} />
-            <span className="max-w-full truncate px-1 text-[10.5px] font-semibold">{label}</span>
-          </Link>
-        ))}
+    <>
+      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-[80] border-t border-line/80 bg-surface/85 pb-[var(--safe-bottom)] backdrop-blur-xl lg:hidden">
+        <div className="mx-auto grid h-16 max-w-md grid-cols-5 px-2">
+          {tabs.map(([to, label, Icon, on]) => !to ? (
+            <button key="trade" onClick={() => setSheet((o) => !o)} aria-label={label} aria-expanded={sheet} className="group flex flex-col items-center justify-center">
+              <span className="holo-bg -mt-6 grid h-[52px] w-[52px] place-items-center rounded-full text-white shadow-[0_10px_24px_-6px_rgba(214,90,200,.7)] ring-4 ring-bg transition group-active:scale-90">
+                <Icon className={cls('h-6 w-6 transition-transform duration-300', sheet && 'rotate-180')} strokeWidth={2.3} />
+              </span>
+              <span className={cls('mt-0.5 whitespace-nowrap text-[10.5px] font-semibold', on || sheet ? 'text-ink' : 'text-muted')}>{label}</span>
+            </button>
+          ) : (
+            <Link key={label} to={to} aria-current={on ? 'page' : undefined}
+              className={cls('relative flex min-w-0 flex-col items-center justify-center gap-1 transition active:scale-90', on ? 'text-accent' : 'text-muted')}>
+              {on && <span className="absolute top-1.5 h-1 w-1 rounded-full bg-accent shadow-[0_0_8px_2px_rgb(var(--accent)/.6)]" />}
+              <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2.3 : 1.8} />
+              <span className="max-w-full truncate px-1 text-[10.5px] font-semibold">{label}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
+      {sheet && <TradeSheet onClose={() => setSheet(false)} />}
+    </>
+  )
+}
+
+function TradeSheet({ onClose }) {
+  const { t } = useT()
+  useEffect(() => {
+    const k = (e) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [onClose])
+  const cards = [
+    ['/concerts', ShoppingBag, t('Buy tickets'), t('Verified tickets from fans, paid with KHQR.'), 'holo-bg text-white'],
+    ['/sell', Tag, t('Sell tickets'), t('List your spare tickets in a few minutes.'), 'bg-ink text-bg'],
+  ]
+  return (
+    <div className="fixed inset-0 z-[75] lg:hidden" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" style={{ animation: 'fade-in .2s ease' }} />
+      <div className="absolute inset-x-3 bottom-[calc(76px+var(--safe-bottom))] mx-auto max-w-md rounded-3xl border border-line bg-surface p-3 shadow-lift"
+        style={{ animation: 'sheet-up .28s cubic-bezier(.2,.8,.2,1)' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={t('Buy · Sell')}>
+        <div className="grid grid-cols-2 gap-2.5">
+          {cards.map(([to, Icon, title, sub, tone]) => (
+            <Link key={to} to={to} onClick={onClose} className="group rounded-2xl border border-line bg-raised p-4 transition active:scale-[.97]">
+              <span className={cls('grid h-11 w-11 place-items-center rounded-xl', tone)}><Icon className="h-5 w-5" /></span>
+              <p className="mt-3 font-display text-[15px] font-bold">{title}</p>
+              <p className="mt-0.5 text-[12px] leading-snug text-muted">{sub}</p>
+            </Link>
+          ))}
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2.5 text-[13px] font-semibold">
+          <Link to="/tickets" onClick={onClose} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-muted transition hover:bg-raised hover:text-ink"><Ticket className="h-4 w-4" />{t('My tickets')}</Link>
+          <Link to="/account/listings" onClick={onClose} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-muted transition hover:bg-raised hover:text-ink"><Tag className="h-4 w-4" />{t('My listings')}</Link>
+        </div>
       </div>
-    </nav>
+    </div>
   )
 }
