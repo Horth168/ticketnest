@@ -501,4 +501,10 @@ export default {
   'Send for approval': '提交审核',
   'Verified buyer': '已验证买家',
   'Sample': '示例',
+  'Activity': '动态',
+  'Help': '帮助',
+  'Listings': '挂单',
+  'Language': '语言',
+  'Staff': '员工',
+  '{amount} pending until buyers receive their tickets': '{amount} 待买家收到门票后到账',
 }

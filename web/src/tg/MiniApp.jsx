@@ -2,7 +2,7 @@
 // - signs in with Telegram's signed initData (validated on the server)
 // - follows Telegram's light/dark theme, safe areas, BackButton, MainButton and haptics
 // - bottom tab bar instead of the website header
-import { MessageCircle } from 'lucide-react'
+import { ChevronRight, FileText, LifeBuoy, MessageCircle, Pencil, RotateCcw, Shield, ShieldCheck, Sparkles, Tag, Ticket, UserCog, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { ConcertCard } from '../components/cards'
@@ -142,20 +142,104 @@ function TgSearch() {
 function TgProfile() {
   const { user, settings } = useApp()
   const { t, lang, setLang } = useT()
+  const [stats, setStats] = useState(null)
+  useEffect(() => {
+    Promise.all([api('/api/orders').catch(() => []), api('/api/sell/dashboard').catch(() => null)])
+      .then(([orders, dash]) => setStats({
+        tickets: orders.filter((o) => !['cancelled', 'refunded'].includes(o.status)).reduce((n, o) => n + (o.item?.quantity || 0), 0),
+        listings: dash?.total_listings ?? 0,
+        wallet: dash?.wallet?.available_cents ?? 0,
+        pending: dash?.wallet?.pending_cents ?? 0,
+      }))
+  }, [])
   const support = settings?.telegram?.support_username
+  const staff = user.role !== 'customer'
+  const money = (c) => `$${(c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const groups = [
+    [t('Activity'), [
+      ['/tg/tickets', Ticket, t('My tickets'), 'bg-[#8B5CF6]', stats?.tickets ? String(stats.tickets) : ''],
+      ['/tg/listings', Tag, t('My listings'), 'bg-[#EC4899]', stats?.listings ? String(stats.listings) : ''],
+      ['/tg/account/wallet', Wallet, t('Wallet & withdrawals'), 'bg-[#10B981]', stats ? money(stats.wallet) : ''],
+      ['/tg/account/invoices', FileText, t('Invoices'), 'bg-[#3B82F6]', ''],
+    ]],
+    [t('Account'), [
+      ['/tg/account', UserCog, t('Profile & settings'), 'bg-[#64748B]', ''],
+      ...(staff ? [['/admin', Shield, t('Admin dashboard'), 'bg-[#F59E0B]', '']] : []),
+    ]],
+    [t('Help'), [
+      ['/tg/how-it-works', Sparkles, t('How it works'), 'bg-[#06B6D4]', ''],
+      ['/tg/policies/refunds', RotateCcw, t('Refund policy'), 'bg-[#F43F5E]', ''],
+      ['/tg/policies/authenticity', ShieldCheck, t('Ticket authenticity'), 'bg-[#22C55E]', ''],
+      ['/tg/support', LifeBuoy, t('Support'), 'bg-[#A855F7]', ''],
+    ]],
+  ]
   return (
-    <div className="page pt-5">
-      <div className="flex items-center gap-4"><Avatar user={user} size={56} />
-        <div><h1 className="text-2xl font-bold">{user.full_name}</h1>
-          <p className="text-sm text-muted">{user.telegram_username ? `@${user.telegram_username}` : t('Telegram account')}{user.email && ` · ${user.email}`}</p></div></div>
-      <div className="mt-5 grid grid-cols-3 gap-2">
-        {LANGS.map((l) => <button key={l.code} onClick={() => setLang(l.code)} className={cls('rounded-xl border px-3 py-2.5 text-sm font-semibold transition', lang === l.code ? 'border-accent bg-accent/10 text-accent' : 'border-line')}>{l.label}</button>)}
+    <div className="page max-w-lg pb-6 pt-3">
+      {/* identity card */}
+      <section className="relative overflow-hidden rounded-[28px] border border-line bg-surface shadow-card">
+        <div className="holo-bg absolute inset-x-0 top-0 h-24 opacity-90" />
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-transparent to-black/10" />
+        <div className="relative px-5 pb-5 pt-12">
+          <div className="flex items-end justify-between gap-3">
+            <div className="rounded-full bg-surface p-1 shadow-card"><Avatar user={user} size={76} /></div>
+            <Link to="/tg/account" onClick={() => haptic('light')} className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-[13px] font-semibold transition active:scale-95">
+              <Pencil className="h-3.5 w-3.5" />{t('Edit')}
+            </Link>
+          </div>
+          <h1 className="mt-3 flex items-center gap-2 text-[22px] font-bold leading-tight">
+            <span className="truncate">{user.full_name}</span>
+            {staff && <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-accent">{t(user.role === 'admin' ? 'Admin' : 'Staff')}</span>}
+          </h1>
+          <p className="mt-0.5 truncate text-[13.5px] text-muted">{user.telegram_username ? `@${user.telegram_username}` : t('Telegram account')}{user.email ? ` · ${user.email}` : ''}</p>
+          {/* quick stats */}
+          <div className="mt-4 grid grid-cols-3 divide-x divide-line rounded-2xl bg-raised py-3 text-center">
+            {[[t('Tickets'), stats ? stats.tickets : '–', '/tg/tickets'], [t('Listings'), stats ? stats.listings : '–', '/tg/listings'], [t('Wallet'), stats ? money(stats.wallet) : '–', '/tg/account/wallet']].map(([l, v, to]) => (
+              <Link key={l} to={to} onClick={() => haptic('light')} className="px-1 transition active:opacity-60">
+                <p className="truncate font-display text-[17px] font-bold tabular-nums">{v}</p>
+                <p className="text-[11.5px] font-medium text-muted">{l}</p>
+              </Link>
+            ))}
+          </div>
+          {stats?.pending > 0 && <p className="mt-2 text-center text-[12px] text-muted">{t('{amount} pending until buyers receive their tickets', { amount: money(stats.pending) })}</p>}
+        </div>
+      </section>
+
+      {/* language */}
+      <p className="mb-2 ml-4 mt-6 text-[12px] font-semibold uppercase tracking-[.12em] text-muted">{t('Language')}</p>
+      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-line bg-surface p-1">
+        {LANGS.map((l) => (
+          <button key={l.code} onClick={() => { haptic('light'); setLang(l.code) }} aria-pressed={lang === l.code}
+            className={cls('rounded-xl py-2.5 text-[14px] font-semibold transition', lang === l.code ? 'bg-ink text-bg shadow-card' : 'text-muted active:bg-raised')}>
+            {l.label}
+          </button>
+        ))}
       </div>
-      <div className="card mt-5 divide-y divide-line">
-        {[['/tg/account', 'Profile & settings'], ['/tg/listings', 'My listings'], ['/tg/tickets', 'My tickets'], ['/tg/account/wallet', 'Wallet & withdrawals'], ['/tg/account/invoices', 'Invoices'], ['/tg/support', 'Support'], ['/tg/policies/refunds', 'Refund policy'], ['/tg/policies/authenticity', 'Ticket authenticity']]
-          .map(([to, l]) => <Link key={to} to={to} className="flex items-center justify-between p-4 text-[15px] font-medium transition active:bg-raised">{t(l)}<span className="text-muted">›</span></Link>)}
-      </div>
-      {support && <button className="btn-ghost mt-5 w-full py-3" onClick={() => openExternal(`https://t.me/${support}`)}><MessageCircle className="h-4 w-4" />{t('Message support')}</button>}
+
+      {/* grouped menus, iOS-settings style */}
+      {groups.map(([title, rows]) => (
+        <div key={title}>
+          <p className="mb-2 ml-4 mt-6 text-[12px] font-semibold uppercase tracking-[.12em] text-muted">{title}</p>
+          <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+            {rows.map(([to, Icon, label, tone, value], i) => (
+              <Link key={to} to={to} onClick={() => haptic('light')}
+                className="flex items-center gap-3.5 px-4 py-3 transition active:bg-raised">
+                <span className={cls('grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-white', tone)}><Icon className="h-[17px] w-[17px]" strokeWidth={2.2} /></span>
+                <span className={cls('flex min-w-0 flex-1 items-center gap-2 self-stretch py-0.5', i > 0 && '-mt-3 border-t border-line pt-3')}>
+                  <span className="flex-1 truncate text-[15px] font-medium">{label}</span>
+                  {value && <span className="text-[14px] tabular-nums text-muted">{value}</span>}
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted/70" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {support && (
+        <button onClick={() => { haptic('light'); openExternal(`https://t.me/${support}`) }}
+          className="btn-holo mt-6 w-full py-3.5 text-[15px]"><MessageCircle className="h-[18px] w-[18px]" />{t('Message support')}</button>
+      )}
+      <p className="mt-6 text-center text-[11.5px] text-muted">TicketNest · {t('Independent resale marketplace, not affiliated with any artist or official seller.')}</p>
     </div>
   )
 }

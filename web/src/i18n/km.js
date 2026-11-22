@@ -501,4 +501,10 @@ export default {
   'Send for approval': 'ផ្ញើដើម្បីអនុម័ត',
   'Verified buyer': 'អ្នកទិញដែលបានផ្ទៀងផ្ទាត់',
   'Sample': 'គំរូ',
+  'Activity': 'សកម្មភាព',
+  'Help': 'ជំនួយ',
+  'Listings': 'ការដាក់លក់',
+  'Language': 'ភាសា',
+  'Staff': 'បុគ្គលិក',
+  '{amount} pending until buyers receive their tickets': '{amount} កំពុងរង់ចាំ រហូតដល់អ្នកទិញទទួលបានសំបុត្រ',
 }
