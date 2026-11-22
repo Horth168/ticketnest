@@ -1,8 +1,8 @@
-import { Camera, Check, CreditCard, FileText, Globe, Info, KeyRound, LogOut, Pencil, QrCode, Receipt, Shield, Ticket, Trash2, Upload, User, Wallet, X } from 'lucide-react'
+import { Camera, Check, ChevronLeft, CreditCard, FileText, Globe, Info, KeyRound, LogOut, Pencil, QrCode, Receipt, Shield, Ticket, Trash2, Upload, User, Wallet, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { GoogleButton, TelegramButton } from '../../components/SocialSignIn'
-import ProfileCard, { useProfileStats } from '../../components/ProfileCard'
+import AccountMenu from '../../components/AccountMenu'
 import { Avatar, Empty, ErrorNote, Field, ListingBadge, Loading, Modal, OrderBadge, PasswordInput, Spinner, Stat } from '../../components/ui'
 import { useApp, useLink } from '../../context/App'
 import { LANGS, useT } from '../../i18n'
@@ -11,31 +11,24 @@ import { cls, dateLong, dateShort, dateTime, usd2 } from '../../lib/format'
 import { inTelegram } from '../../lib/telegram'
 import { openFile } from '../../lib/api'
 
-const TABS = [['', 'Profile', User], ['/listings', 'My listings', Receipt], ['/wallet', 'Wallet', Wallet], ['/invoices', 'Invoices', FileText]]
+const TITLES = { settings: 'Profile & settings', listings: 'My listings', wallet: 'Wallet & withdrawals', invoices: 'Invoices', orders: 'My orders' }
 export const PAYOUT_NOTE = 'You are paid when a buyer purchases your ticket and receives it, not when you submit the listing. Your earnings then move to your wallet and you can request a withdrawal.'
 
 export default function Account() {
-  const { user, logout } = useApp()
-  const stats = useProfileStats()
   const { t } = useT()
   const link = useLink()
-  const nav = useNavigate()
+  const loc = useLocation()
+  const sub = loc.pathname.replace(/^.*\/account\/?/, '').split('/')[0]
+  if (!sub) {
+    return <div className="page max-w-2xl pb-6 pt-4 sm:pt-8"><AccountMenu /></div>
+  }
   return (
-    <div className="page max-w-5xl pt-4 sm:pt-8">
-      <ProfileCard className="rise" stats={stats} editTo="/account" actions={!inTelegram() && <>
-        {user.role !== 'customer' && <Link to="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-[13px] font-semibold transition hover:bg-raised sm:px-3.5" title={t('Admin dashboard')}><Shield className="h-3.5 w-3.5" /><span className="hidden sm:inline">{t('Admin')}</span></Link>}
-        <button onClick={() => { logout(); nav('/') }} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-[13px] font-semibold text-bad transition hover:bg-bad/5 sm:px-3.5" title={t('Sign out')}><LogOut className="h-3.5 w-3.5" /><span className="hidden sm:inline">{t('Sign out')}</span></button>
-      </>} />
-      <nav className="no-scrollbar mt-5 flex gap-1 overflow-x-auto rounded-2xl border border-line bg-surface p-1">
-        {TABS.map(([p, l, Icon]) => (
-          <NavLink key={p} end={p === ''} to={link(`/account${p}`)}
-            className={({ isActive }) => cls('flex flex-1 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200',
-              isActive ? 'bg-ink text-bg shadow-card' : 'text-muted hover:bg-raised hover:text-ink')}>
-            <Icon className="h-4 w-4" />{t(l)}
-          </NavLink>
-        ))}
-      </nav>
-      <div className="mt-6"><Outlet /></div>
+    <div className="page max-w-3xl pt-4 sm:pt-8">
+      <Link to={link('/account')} className="inline-flex items-center gap-1 rounded-full border border-line bg-surface py-1.5 pl-2 pr-3.5 text-[13px] font-semibold text-muted transition hover:text-ink active:scale-95">
+        <ChevronLeft className="h-4 w-4" />{t('Account')}
+      </Link>
+      <h1 className="rise mt-3 text-[26px] font-bold leading-tight sm:text-3xl">{t(TITLES[sub] || 'Account')}</h1>
+      <div className="mt-5"><Outlet /></div>
     </div>
   )
 }

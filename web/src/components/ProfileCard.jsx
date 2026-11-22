@@ -25,7 +25,7 @@ export function useProfileStats() {
   return stats
 }
 
-export default function ProfileCard({ stats, editTo = '/account', actions = null, className = '' }) {
+export default function ProfileCard({ stats, editTo = '/account/settings', actions = null, className = '' }) {
   const { user } = useApp()
   const { t } = useT()
   const link = useLink()
@@ -45,7 +45,7 @@ export default function ProfileCard({ stats, editTo = '/account', actions = null
             </Link>
           </div>
         </div>
-        <div className="sm:flex sm:items-end sm:justify-between sm:gap-6">
+        <div>
           <div className="min-w-0">
             <h1 className="mt-3 flex items-center gap-2 text-[22px] font-bold leading-tight sm:text-[26px]">
               <span className="truncate">{user.full_name}</span>
@@ -53,7 +53,7 @@ export default function ProfileCard({ stats, editTo = '/account', actions = null
             </h1>
             <p className="mt-0.5 truncate text-[13.5px] text-muted">{handle}</p>
           </div>
-          <div className="mt-4 grid grid-cols-3 divide-x divide-line rounded-2xl bg-raised py-3 text-center sm:mt-0 sm:w-[360px] sm:shrink-0">
+          <div className="mt-4 grid grid-cols-3 divide-x divide-line rounded-2xl bg-raised py-3 text-center">
             {[[t('Tickets'), stats ? stats.tickets : '–', '/tickets'], [t('Listings'), stats ? stats.listings : '–', '/account/listings'], [t('Wallet'), stats ? money(stats.wallet) : '–', '/account/wallet']].map(([l, v, to]) => (
               <Link key={l} to={link(to)} onClick={() => haptic('light')} className="px-1 transition hover:opacity-80 active:opacity-60">
                 <p className="truncate font-display text-[17px] font-bold tabular-nums">{v}</p>
@@ -62,7 +62,7 @@ export default function ProfileCard({ stats, editTo = '/account', actions = null
             ))}
           </div>
         </div>
-        {stats?.pending > 0 && <p className="mt-2 text-center text-[12px] text-muted sm:text-right">{t('{amount} pending until buyers receive their tickets', { amount: money(stats.pending) })}</p>}
+        {stats?.pending > 0 && <p className="mt-2 text-center text-[12px] text-muted">{t('{amount} pending until buyers receive their tickets', { amount: money(stats.pending) })}</p>}
       </div>
     </section>
   )

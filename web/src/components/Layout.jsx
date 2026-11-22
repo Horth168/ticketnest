@@ -125,7 +125,7 @@ function UserMenu() {
         <div className="pop absolute right-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-line bg-surface p-1.5 shadow-lift" onClick={() => setOpen(false)}>
           <div className="flex items-center gap-3 px-3 py-2.5"><Avatar user={user} size={38} /><div className="min-w-0"><p className="truncate text-sm font-semibold">{user.full_name}</p><p className="truncate text-[12px] text-muted">{user.email || (user.telegram_username && `@${user.telegram_username}`)}</p></div></div>
           <div className="my-1 h-px bg-line" />
-          {[['/account', t('Profile & settings'), User], ['/tickets', t('My tickets'), Ticket], ['/account/listings', t('My listings'), Tag], ['/account/wallet', t('Wallet'), Wallet]]
+          {[['/account', t('Account'), User], ['/account/settings', t('Profile & settings'), User], ['/tickets', t('My tickets'), Ticket], ['/account/listings', t('My listings'), Tag], ['/account/wallet', t('Wallet'), Wallet]]
             .map(([to, l, Icon]) => <Link key={to} to={to} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm hover:bg-raised"><Icon className="h-4 w-4 text-muted" />{l}</Link>)}
           {user.role !== 'customer' && <Link to="/admin" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm hover:bg-raised"><Shield className="h-4 w-4 text-muted" />{t('Admin dashboard')}</Link>}
           <div className="my-1 h-px bg-line" />
@@ -177,7 +177,7 @@ export default function Layout() {
           <div className="rise border-t border-line bg-bg lg:hidden">
             <div className="page space-y-1 py-4">
               <SearchBox className="mb-3" />
-              {[...NAV, ['/sell', 'Sell tickets'], ...(user ? [['/tickets', 'My tickets'], ['/account/listings', 'My listings'], ['/account', 'Profile & settings']] : [['/login', 'Sign in'], ['/register', 'Create account']])].map(([to, label]) => (
+              {[...NAV, ['/sell', 'Sell tickets'], ...(user ? [['/tickets', 'My tickets'], ['/account/listings', 'My listings'], ['/account', 'Account'], ['/account/settings', 'Profile & settings']] : [['/login', 'Sign in'], ['/register', 'Create account']])].map(([to, label]) => (
                 <Link key={to} to={to} className="block rounded-xl px-3 py-3 text-[15px] font-medium transition hover:bg-raised">{t(label)}</Link>
               ))}
               {user && user.role !== 'customer' && <Link to="/admin" className="block rounded-xl px-3 py-3 text-[15px] font-medium hover:bg-raised">{t('Admin dashboard')}</Link>}

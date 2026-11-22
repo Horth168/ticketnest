@@ -2,9 +2,8 @@
 // - signs in with Telegram's signed initData (validated on the server)
 // - follows Telegram's light/dark theme, safe areas, BackButton, MainButton and haptics
 // - bottom tab bar instead of the website header
-import { ChevronRight, FileText, LifeBuoy, MessageCircle, Pencil, RotateCcw, Shield, ShieldCheck, Sparkles, Tag, Ticket, UserCog, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { ConcertCard } from '../components/cards'
 import { Empty, Loading, Logo, Spinner } from '../components/ui'
 import { BaseProvider, useApp } from '../context/App'
@@ -18,7 +17,7 @@ import Explore, { Artists } from '../pages/Explore'
 import Home from '../pages/Home'
 import TicketsPage from '../pages/Tickets'
 import { TabBar } from '../components/Layout'
-import ProfileCard, { money, useProfileStats } from '../components/ProfileCard'
+import AccountMenu from '../components/AccountMenu'
 import { HowItWorks, Policy, Support } from '../pages/Info'
 import { LANGS, useT } from '../i18n'
 import { Avatar } from '../components/ui'
@@ -103,12 +102,12 @@ export default function MiniApp() {
           <Route path="orders/:number" element={<RequireAuth><OrderPage /></RequireAuth>} />
           <Route path="sell" element={<RequireAuth><Sell /></RequireAuth>} />
           <Route path="orders" element={<RequireAuth><TicketsPage /></RequireAuth>} />
-          <Route path="listings" element={<RequireAuth><div className="page pt-5"><h1 className="mb-4 text-2xl font-bold">{t('My listings')}</h1><MyListings /></div></RequireAuth>} />
+          <Route path="listings" element={<Navigate to="/tg/account/listings" replace />} />
           <Route path="account" element={<RequireAuth><Account /></RequireAuth>}>
-            <Route index element={<Profile />} /><Route path="orders" element={<MyOrders />} /><Route path="listings" element={<MyListings />} />
+            <Route index element={null} /><Route path="settings" element={<Profile />} /><Route path="orders" element={<MyOrders />} /><Route path="listings" element={<MyListings />} />
             <Route path="wallet" element={<MyWallet />} /><Route path="invoices" element={<MyInvoices />} />
           </Route>
-          <Route path="profile" element={<RequireAuth><TgProfile /></RequireAuth>} />
+          <Route path="profile" element={<RequireAuth><div className="page max-w-lg pb-6 pt-3"><AccountMenu /></div></RequireAuth>} />
           <Route path="support" element={<Support />} />
           <Route path="policies/:slug" element={<Policy />} />
           <Route path="*" element={<Home />} />
@@ -136,74 +135,6 @@ function TgSearch() {
       <div className="mt-4 grid gap-4">
         {rows === null ? <p className="text-sm text-muted">{t('Type to search concerts.')}</p> : rows.length ? rows.map((c) => <ConcertCard key={c.id} c={c} />) : <Empty title={t('No results')} />}
       </div>
-    </div>
-  )
-}
-
-function TgProfile() {
-  const { user, settings } = useApp()
-  const { t, lang, setLang } = useT()
-  const stats = useProfileStats()
-  const support = settings?.telegram?.support_username
-  const staff = user.role !== 'customer'
-  const groups = [
-    [t('Activity'), [
-      ['/tg/tickets', Ticket, t('My tickets'), 'bg-[#8B5CF6]', stats?.tickets ? String(stats.tickets) : ''],
-      ['/tg/listings', Tag, t('My listings'), 'bg-[#EC4899]', stats?.listings ? String(stats.listings) : ''],
-      ['/tg/account/wallet', Wallet, t('Wallet & withdrawals'), 'bg-[#10B981]', stats ? money(stats.wallet) : ''],
-      ['/tg/account/invoices', FileText, t('Invoices'), 'bg-[#3B82F6]', ''],
-    ]],
-    [t('Account'), [
-      ['/tg/account', UserCog, t('Profile & settings'), 'bg-[#64748B]', ''],
-      ...(staff ? [['/admin', Shield, t('Admin dashboard'), 'bg-[#F59E0B]', '']] : []),
-    ]],
-    [t('Help'), [
-      ['/tg/how-it-works', Sparkles, t('How it works'), 'bg-[#06B6D4]', ''],
-      ['/tg/policies/refunds', RotateCcw, t('Refund policy'), 'bg-[#F43F5E]', ''],
-      ['/tg/policies/authenticity', ShieldCheck, t('Ticket authenticity'), 'bg-[#22C55E]', ''],
-      ['/tg/support', LifeBuoy, t('Support'), 'bg-[#A855F7]', ''],
-    ]],
-  ]
-  return (
-    <div className="page max-w-lg pb-6 pt-3">
-      <ProfileCard stats={stats} editTo="/account" />
-
-      {/* language */}
-      <p className="mb-2 ml-4 mt-6 text-[12px] font-semibold uppercase tracking-[.12em] text-muted">{t('Language')}</p>
-      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-line bg-surface p-1">
-        {LANGS.map((l) => (
-          <button key={l.code} onClick={() => { haptic('light'); setLang(l.code) }} aria-pressed={lang === l.code}
-            className={cls('rounded-xl py-2.5 text-[14px] font-semibold transition', lang === l.code ? 'bg-ink text-bg shadow-card' : 'text-muted active:bg-raised')}>
-            {l.label}
-          </button>
-        ))}
-      </div>
-
-      {/* grouped menus, iOS-settings style */}
-      {groups.map(([title, rows]) => (
-        <div key={title}>
-          <p className="mb-2 ml-4 mt-6 text-[12px] font-semibold uppercase tracking-[.12em] text-muted">{title}</p>
-          <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-            {rows.map(([to, Icon, label, tone, value], i) => (
-              <Link key={to} to={to} onClick={() => haptic('light')}
-                className="flex items-center gap-3.5 px-4 py-3 transition active:bg-raised">
-                <span className={cls('grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-white', tone)}><Icon className="h-[17px] w-[17px]" strokeWidth={2.2} /></span>
-                <span className={cls('flex min-w-0 flex-1 items-center gap-2 self-stretch py-0.5', i > 0 && '-mt-3 border-t border-line pt-3')}>
-                  <span className="flex-1 truncate text-[15px] font-medium">{label}</span>
-                  {value && <span className="text-[14px] tabular-nums text-muted">{value}</span>}
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted/70" />
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {support && (
-        <button onClick={() => { haptic('light'); openExternal(`https://t.me/${support}`) }}
-          className="btn-holo mt-6 w-full py-3.5 text-[15px]"><MessageCircle className="h-[18px] w-[18px]" />{t('Message support')}</button>
-      )}
-      <p className="mt-6 text-center text-[11.5px] text-muted">TicketNest · {t('Independent resale marketplace, not affiliated with any artist or official seller.')}</p>
     </div>
   )
 }

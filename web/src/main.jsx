@@ -47,7 +47,8 @@ createRoot(document.getElementById('root')).render(
               <Route path="sell" element={<RequireAuth><Sell /></RequireAuth>} />
               <Route path="tickets" element={<RequireAuth><TicketsPage /></RequireAuth>} />
               <Route path="account" element={<RequireAuth><Account /></RequireAuth>}>
-                <Route index element={<Profile />} />
+                <Route index element={null} />
+                <Route path="settings" element={<Profile />} />
                 <Route path="orders" element={<Navigate to="/tickets" replace />} />
                 <Route path="listings" element={<MyListings />} />
                 <Route path="wallet" element={<MyWallet />} />
