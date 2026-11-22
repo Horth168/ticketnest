@@ -55,3 +55,24 @@ def test_seller_told_ticket_sold_and_daily_report(client, setup):
     assert any(m["kind"] == "daily_report" for m in TG_SENT)
     ov = client.get("/api/admin/overview", headers=setup["admin"]).json()
     assert len(ov["series"]) == 30 and ov["top_concerts"][0]["tickets"] == 1
+
+
+def test_telegram_sends_proof_receipt_and_payout_qr(client, setup):
+    from conftest import BOT_CALLS
+    from app.routers.telegram import handle_update
+    l = create_listing(client, setup)
+    cq = lambda data: {"callback_query": {"id": "x", "from": {"id": 777}, "data": data,  # noqa: E731
+                                          "message": {"message_id": 1, "chat": {"id": -1009990001}}}}
+    with SessionLocal() as s:
+        handle_update(s, cq(f"lst:files:{l['id']}"))
+        handle_update(s, cq(f"lst:seller:{l['id']}"))
+    photos = [kw for m, kw in BOT_CALLS if m == "sendPhoto"]
+    captions = " ".join(p["caption"] for p in photos)
+    assert "Ticket proof 1/1" in captions and "Purchase receipt 1/1" in captions and "Payout QR" in captions
+    assert all("photo" in p["files"] for p in photos)
+    # a non-admin gets nothing
+    BOT_CALLS.clear()
+    with SessionLocal() as s:
+        handle_update(s, {"callback_query": {"id": "y", "from": {"id": 5}, "data": f"lst:files:{l['id']}",
+                                             "message": {"message_id": 1, "chat": {"id": 5}}}})
+    assert not [m for m, _ in BOT_CALLS if m == "sendPhoto"]

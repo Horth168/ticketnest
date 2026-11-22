@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { Eye, EyeOff, Loader2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useT } from '../i18n'
@@ -96,20 +97,24 @@ export function Modal({ open, onClose, title, children, wide = false }) {
     if (!open) return
     const k = (e) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', k)
-    return () => window.removeEventListener('keydown', k)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', k); document.body.style.overflow = prev }
   }, [open, onClose])
   if (!open) return null
-  return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6" onClick={onClose}>
-      <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}
-        className={cls('rise max-h-[92vh] w-full overflow-auto rounded-t-3xl bg-surface p-5 shadow-lift sm:rounded-3xl sm:p-6', wide ? 'sm:max-w-2xl' : 'sm:max-w-md')}>
+  // Rendered into <body> so it is always centred on the screen, never inside an animated parent.
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-[2px] sm:p-6" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} onClick={(e) => e.stopPropagation()}
+        className={cls('pop my-auto max-h-[calc(100dvh-2rem)] w-full overflow-auto rounded-3xl bg-surface p-5 shadow-lift sm:p-6', wide ? 'max-w-2xl' : 'max-w-md')}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <h3 className="text-lg font-semibold">{title}</h3>
           <button onClick={onClose} className="-m-1 rounded-lg p-1 text-muted hover:text-ink" aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

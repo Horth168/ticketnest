@@ -41,7 +41,8 @@ def new_registration(db: Session, user: User, method: str) -> None:
 def listing_buttons(listing_id: int) -> list[list[dict]]:
     return [[{"text": "✅ Approve", "callback_data": f"lst:ok:{listing_id}"},
              {"text": "❌ Reject", "callback_data": f"lst:no:{listing_id}"}],
-            [{"text": "👤 View seller", "callback_data": f"lst:seller:{listing_id}"}]]
+            [{"text": "📎 Proof & receipt", "callback_data": f"lst:files:{listing_id}"},
+             {"text": "👤 Seller & payout QR", "callback_data": f"lst:seller:{listing_id}"}]]
 
 
 def new_listing(db: Session, listing: TicketListing) -> None:
@@ -112,7 +113,8 @@ def withdrawal_requested(db: Session, w: WithdrawalRequest) -> None:
                        f"Amount: <b>{fmt_usd2(w.amount_cents)}</b>\nTo: {e(w.method)} · {e(w.account_name)} · "
                        f"<code>{e(w.account_number)}</code>\nPay it from your bank app, then mark it paid."
                    + _admin_link("/withdrawals"), kind="withdrawal_new",
-                   buttons=[[{"text": "✅ Mark as paid", "callback_data": f"wd:paid:{w.id}"}]])
+                   buttons=[[{"text": "💳 Payout QR", "callback_data": f"wd:qr:{w.id}"},
+                             {"text": "✅ Mark as paid", "callback_data": f"wd:paid:{w.id}"}]])
 
 
 def withdrawal_completed(db: Session, w: WithdrawalRequest, by: str) -> None:

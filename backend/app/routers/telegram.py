@@ -203,7 +203,7 @@ def _pending(db: Session, cid) -> None:
     for w in db.query(WithdrawalRequest).filter_by(status=WithdrawalStatus.pending).limit(10).all():
         _reply(cid, f"💸 <b>Withdrawal #{w.id}</b> · {fmt_usd2(w.amount_cents)}\n{e(w.user.full_name)} → {e(w.method)} "
                     f"{e(w.account_name)} <code>{e(w.account_number)}</code>",
-               [[{"text": "✅ Mark as paid", "callback_data": f"wd:paid:{w.id}"}]])
+               [[{"text": "💳 Payout QR", "callback_data": f"wd:qr:{w.id}"}, {"text": "✅ Mark as paid", "callback_data": f"wd:paid:{w.id}"}]])
     for o in db.query(Order).filter(Order.status.in_([OrderStatus.paid, OrderStatus.preparing,
                                                       OrderStatus.awaiting_delivery])).limit(10).all():
         _reply(cid, f"📦 <b>To deliver: {e(o.order_number)}</b>\n{e(o.items[0].concert_title)} × {o.items[0].quantity}\n"
@@ -278,7 +278,15 @@ def _button(db: Session, cq: dict) -> None:
                 _reply(chat_id, f"👤 <b>Seller of #{l.id}</b>\n{e(s.full_name if s else 'TicketNest')}\n"
                                 f"Email: {e(s.email if s else '-')}\nTelegram: @{e(l.contact_telegram)}\n"
                                 f"Phone: {e(l.contact_phone or '-')}\nPayout: {e(l.payout_method)} · "
-                                f"{e(l.payout_account_name)} · <code>{e(l.payout_account_number)}</code>")
+                                f"{e(l.payout_account_name)} · <code>{e(l.payout_account_number)}</code>",
+                       [[{"text": "📎 Ticket proof & receipt", "callback_data": f"lst:files:{l.id}"}],
+                        [{"text": "💬 Message seller", "url": f"https://t.me/{l.contact_telegram}"}]] if l.contact_telegram else
+                       [[{"text": "📎 Ticket proof & receipt", "callback_data": f"lst:files:{l.id}"}]])
+                _send_payout_qr(chat_id, l.payout_qr_key or (s.payout_qr_key if s else ""),
+                                f"💳 Payout QR of {e(s.full_name if s else '')} · listing #{l.id}")
+            elif action == "files":
+                answer("Sending files…")
+                _send_listing_files(chat_id, l)
         elif kind == "ord":
             o = db.get(Order, ident)
             if not o:
@@ -318,7 +326,12 @@ def _button(db: Session, cq: dict) -> None:
             w = db.get(WithdrawalRequest, ident)
             if not w:
                 return answer("Withdrawal not found", True)
-            if action == "paid":
+            if action == "qr":
+                answer("Sending payout QR…")
+                if not _send_payout_qr(chat_id, w.user.payout_qr_key, f"💳 Pay <b>{fmt_usd2(w.amount_cents)}</b> to "
+                                       f"{e(w.account_name)} · {e(w.method)} <code>{e(w.account_number)}</code>"):
+                    _reply(chat_id, "This seller hasn't uploaded a payout QR. Use the account number above.")
+            elif action == "paid":
                 answer("Confirm below")
                 _reply(chat_id, f"Did you send <b>{fmt_usd2(w.amount_cents)}</b> to {e(w.method)} "
                                 f"<code>{e(w.account_number)}</code> ({e(w.account_name)})?",
@@ -348,3 +361,37 @@ def _button(db: Session, cq: dict) -> None:
     except HTTPException as ex:
         db.rollback()
         answer(str(ex.detail), True)
+
+
+def _send_payout_qr(chat_id, key: str, caption: str) -> bool:
+    from app.services import storage
+    if not key:
+        return False
+    try:
+        data = storage.read_private(key)
+    except Exception:  # noqa: BLE001
+        return False
+    kind = storage.sniff(data) or "image/png"
+    return bool((tg.send_file(chat_id, data, "payout-qr" + {"image/jpeg": ".jpg"}.get(kind, ".png"), kind, caption) or {}).get("ok"))
+
+
+def _send_listing_files(chat_id, l: TicketListing) -> None:
+    """Ticket proofs and purchase receipts as real photos / PDFs, so the admin can open and save them."""
+    from app.services import storage
+    files = sorted(l.files, key=lambda f: (f.kind != "proof", f.id))
+    if not files:
+        _reply(chat_id, f"Listing #{l.id} has no files.")
+        return
+    counts = {}
+    for f in files:
+        counts[f.kind] = counts.get(f.kind, 0) + 1
+        label = "🎫 Ticket proof" if f.kind == "proof" else "🧾 Purchase receipt"
+        total = sum(1 for x in files if x.kind == f.kind)
+        try:
+            data = storage.read_private(f.storage_key)
+        except Exception:  # noqa: BLE001
+            _reply(chat_id, f"Could not open {e(f.original_name)}")
+            continue
+        tg.send_file(chat_id, data, f.original_name or f"{f.kind}-{f.id}", f.content_type,
+                     f"{label} {counts[f.kind]}/{total} · listing #{l.id}\n"
+                     f"{e(l.concert.title)} · {e(l.category.name)} · original {fmt_usd2(l.original_price_cents)}")

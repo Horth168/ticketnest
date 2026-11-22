@@ -169,7 +169,7 @@ export function Profile() {
             </Conn>
             <Conn name="Telegram" on={!!user.telegram_id} detail={user.telegram_username ? `@${user.telegram_username}` : user.telegram_id ? t('Connected') : t('Not connected')}
               action={user.telegram_id && <button onClick={() => unlink('telegram')} className="text-[13px] font-medium text-muted hover:text-bad">{t('Disconnect')}</button>}>
-              {!user.telegram_id && <TelegramButton mode="link" onDone={linked} />}
+              {!user.telegram_id && <TelegramButton mode="link" label={t('Connect Telegram')} onDone={linked} />}
             </Conn>
           </div>
         </Section>

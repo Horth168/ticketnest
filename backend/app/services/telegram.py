@@ -55,11 +55,17 @@ def e(v) -> str:
 
 
 # ---------------------------------------------------------------- low-level API
-def call(method: str, **payload) -> dict | None:
+def call(method: str, files: dict | None = None, **payload) -> dict | None:
     if not enabled():
         return None
     try:
-        r = httpx.post(API.format(token=settings.TELEGRAM_BOT_TOKEN, method=method), json=payload, timeout=20)
+        url = API.format(token=settings.TELEGRAM_BOT_TOKEN, method=method)
+        if files:   # multipart upload (photos / documents); other fields are sent as form data
+            import json as _json
+            form = {k: (_json.dumps(v) if isinstance(v, (dict, list)) else str(v)) for k, v in payload.items()}
+            r = httpx.post(url, data=form, files=files, timeout=60)
+        else:
+            r = httpx.post(url, json=payload, timeout=20)
         data = r.json()
         if not data.get("ok"):
             log.warning("Telegram %s failed: %s", method, data.get("description"))
@@ -156,3 +162,13 @@ def _after_commit(session: Session) -> None:
 @event.listens_for(Session, "after_rollback")
 def _after_rollback(session: Session) -> None:
     session.info.pop(OUTBOX, None)
+
+
+def send_file(chat_id, data: bytes, filename: str, content_type: str, caption: str = "") -> dict | None:
+    """Send a private file (ticket proof, receipt, payout QR) straight to an admin chat.
+    Images go as photos (shown inline, long-press to save); PDFs as documents."""
+    if content_type.startswith("image/"):
+        return call("sendPhoto", files={"photo": (filename, data, content_type)}, chat_id=chat_id,
+                    caption=caption[:1024], parse_mode="HTML")
+    return call("sendDocument", files={"document": (filename, data, content_type)}, chat_id=chat_id,
+                caption=caption[:1024], parse_mode="HTML")

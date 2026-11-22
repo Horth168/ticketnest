@@ -1,10 +1,10 @@
-import { Download, Plus, Trash2, Upload } from 'lucide-react'
+import { Download, Plus, Search, ShieldCheck, Trash2, Upload, User, UserCog } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Route, Routes } from 'react-router-dom'
-import { Badge, Empty, ErrorNote, Field, Loading, Modal, Poster, Row } from '../../components/ui'
+import { Avatar, Badge, Empty, ErrorNote, Field, Loading, Modal, Poster, Row } from '../../components/ui'
 import { useApp } from '../../context/App'
 import { api, openFile } from '../../lib/api'
-import { dateTime, pct, usd2 } from '../../lib/format'
+import { cls, dateTime, pct, usd2 } from '../../lib/format'
 import { H, Tabs } from './AdminApp'
 import { PayoutQr } from './Listings'
 
@@ -286,26 +286,84 @@ function Artists() {
 }
 
 // ------------------------------------------------------------------ users
+const ROLE = {
+  admin: { label: 'Admin', icon: ShieldCheck, badge: 'bg-accent text-accent-ink', ring: 'ring-accent', row: 'bg-accent/[.04]' },
+  staff: { label: 'Staff', icon: UserCog, badge: 'bg-warn/15 text-warn', ring: 'ring-warn', row: 'bg-warn/[.04]' },
+  customer: { label: 'Customer', icon: User, badge: 'bg-muted/10 text-muted', ring: 'ring-transparent', row: '' },
+}
+const RANK = { admin: 0, staff: 1, customer: 2 }
+
 function UsersPage() {
   const { user, toast } = useApp()
   const [q, setQ] = useState('')
+  const [tab, setTab] = useState('all')
   const [rows, setRows] = useState(null)
-  const load = useCallback(() => api(`/api/admin/users?q=${encodeURIComponent(q)}`).then(setRows), [q])
-  useEffect(() => { load() }, [load])
-  const patch = async (u, body) => { try { await api(`/api/admin/users/${u.id}`, { method: 'PATCH', body }); toast('Saved'); load() } catch (e) { toast(e.message, 'error') } }
+  const load = useCallback(() => api(`/api/admin/users?q=${encodeURIComponent(q)}`).then(setRows).catch((e) => toast(e.message, 'error')), [q, toast])
+  useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t) }, [load])
+  const patch = async (u, body) => {
+    if (body.role === 'admin' && !window.confirm(`Make ${u.full_name} an admin? Admins can change settings, roles and payouts.`)) return
+    if (body.is_active === false && !window.confirm(`Disable ${u.full_name}? They won't be able to sign in or use their account.`)) return
+    try { await api(`/api/admin/users/${u.id}`, { method: 'PATCH', body }); toast('Saved'); load() } catch (e) { toast(e.message, 'error') }
+  }
+  const all = rows || []
+  const count = { all: all.length, team: all.filter((u) => u.role !== 'customer').length, customer: all.filter((u) => u.role === 'customer').length, disabled: all.filter((u) => !u.is_active).length }
+  const shown = all
+    .filter((u) => tab === 'all' || (tab === 'team' ? u.role !== 'customer' : tab === 'disabled' ? !u.is_active : u.role === tab))
+    .sort((x, y) => RANK[x.role] - RANK[y.role] || y.id - x.id)
+  const canEdit = (u) => user.role === 'admin' && u.id !== user.id
   return (
     <div>
-      <H title="Users" />
-      <input className="input mb-4 max-w-sm" placeholder="Search name, email, Telegram" value={q} onChange={(e) => setQ(e.target.value)} />
-      {!rows ? <Loading /> : (
-        <div className="card overflow-x-auto"><table className="w-full min-w-[680px] text-sm"><tbody className="divide-y divide-line">
-          {rows.map((u) => (
-            <tr key={u.id}><td className="px-4 py-3"><b>{u.full_name}</b><p className="text-[12px] text-muted">{u.email || '—'}{u.telegram_username && ` · @${u.telegram_username}`}</p></td>
-              <td className="text-[12px] text-muted">{u.providers.join(', ') || 'email'} · {u.orders} orders · {u.listings} listings</td>
-              <td>{user.role === 'admin' && u.id !== user.id ? <select className="input py-1.5" value={u.role} onChange={(e) => patch(u, { role: e.target.value })}><option value="customer">customer</option><option value="staff">staff</option><option value="admin">admin</option></select> : <Badge>{u.role}</Badge>}</td>
-              <td className="px-4 text-right">{user.role === 'admin' && u.id !== user.id && <button className={u.is_active ? 'btn-ghost py-1.5' : 'btn-accent py-1.5'} onClick={() => patch(u, { is_active: !u.is_active })}>{u.is_active ? 'Disable' : 'Enable'}</button>}</td></tr>
+      <H title="Users" sub={rows ? `${count.all} account${count.all === 1 ? "" : "s"} · ${count.team} on the team` : undefined} />
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1">
+          {[['all', 'All'], ['team', 'Team'], ['customer', 'Customers'], ['disabled', 'Disabled']].map(([v, l]) => (
+            <button key={v} onClick={() => setTab(v)} className={cls('chip shrink-0', tab === v && '!border-ink bg-ink !text-bg')}>
+              {l}<span className={cls('tabular-nums', tab === v ? 'text-bg/60' : 'text-muted')}>{count[v]}</span>
+            </button>
           ))}
-        </tbody></table></div>
+        </div>
+        <div className="relative sm:w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input className="input pl-9" placeholder="Search name, email, Telegram" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+      </div>
+      {!rows ? <Loading /> : !shown.length ? <Empty title="No users found" /> : (
+        <div className="card divide-y divide-line overflow-hidden">
+          {shown.map((u) => {
+            const r = ROLE[u.role] || ROLE.customer
+            return (
+              <div key={u.id} className={cls('flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4', r.row, !u.is_active && 'opacity-60')}>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <Avatar user={u} size={44} className={cls('ring-2 ring-offset-2 ring-offset-surface', r.ring)} />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="truncate font-semibold">{u.full_name}</p>
+                      <span className={cls('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold', r.badge)}><r.icon className="h-3 w-3" />{r.label}</span>
+                      {u.id === user.id && <span className="rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-bg">You</span>}
+                      {!u.is_active && <Badge tone="bad">Disabled</Badge>}
+                    </div>
+                    <p className="truncate text-[13px] text-muted">{u.email || 'No email'}{u.telegram_username && ` · @${u.telegram_username}`}</p>
+                    <p className="mt-0.5 text-[12px] text-muted">
+                      Joined {new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {' · '}{u.orders} order{u.orders === 1 ? '' : 's'} · {u.listings} listing{u.listings === 1 ? '' : 's'}
+                      {' · '}{(u.providers.length ? u.providers : ['email']).join(', ')}
+                    </p>
+                  </div>
+                </div>
+                {canEdit(u) && (
+                  <div className="flex items-center gap-2 pl-[56px] sm:pl-0">
+                    <select className="input w-auto py-2 text-[13px]" value={u.role} onChange={(e) => patch(u, { role: e.target.value })} aria-label="Role">
+                      <option value="customer">Customer</option><option value="staff">Staff</option><option value="admin">Admin</option>
+                    </select>
+                    <button className={cls('py-2 text-[13px]', u.is_active ? 'btn-ghost hover:!text-bad' : 'btn-accent')} onClick={() => patch(u, { is_active: !u.is_active })}>
+                      {u.is_active ? 'Disable' : 'Enable'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )

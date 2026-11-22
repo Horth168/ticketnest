@@ -1,6 +1,6 @@
 // "Continue with Google" (Google Identity Services popup -> access token, verified on the server)
-// and the official Telegram Login Widget (data signed by Telegram, verified on the server).
-import { useEffect, useRef, useState } from 'react'
+// and the official Telegram Login popup (data signed by Telegram, verified on the server).
+import { useState } from 'react'
 import { useApp } from '../context/App'
 import { api } from '../lib/api'
 
@@ -44,30 +44,31 @@ export function GoogleButton({ onDone, mode = 'login', label = 'Continue with Go
   )
 }
 
-export function TelegramButton({ onDone, mode = 'login' }) {
+export function TelegramButton({ onDone, mode = 'login', label = 'Continue with Telegram' }) {
   const { settings, toast } = useApp()
-  const bot = settings?.telegram?.login_bot_username
-  const ref = useRef(null)
-  useEffect(() => {
-    if (!bot || !ref.current) return
-    const cb = `tnTelegramAuth_${mode}`
-    window[cb] = async (data) => {
-      try {
-        const path = mode === 'link' ? '/api/account/link/telegram' : '/api/auth/telegram'
-        onDone(await api(path, { method: 'POST', body: data }))
-      } catch (e) { toast(e.message, 'error') }
-    }
-    const s = document.createElement('script')
-    s.src = 'https://telegram.org/js/telegram-widget.js?22'
-    s.async = true
-    s.setAttribute('data-telegram-login', bot)
-    s.setAttribute('data-size', 'large')
-    s.setAttribute('data-radius', '12')
-    s.setAttribute('data-request-access', 'write')
-    s.setAttribute('data-onauth', `${cb}(user)`)
-    ref.current.innerHTML = ''
-    ref.current.appendChild(s)
-  }, [bot, mode, onDone, toast])
-  if (!bot) return null
-  return <div ref={ref} className="flex min-h-[40px] justify-center" />
+  const botId = settings?.telegram?.login_bot_id
+  const [busy, setBusy] = useState(false)
+  if (!botId) return null
+  // Telegram's official login popup (same signed data as the widget, verified on the server),
+  // opened from our own button so it matches the Google button exactly.
+  const go = async () => {
+    setBusy(true)
+    try {
+      await loadScript('https://telegram.org/js/telegram-widget.js?22')
+      window.Telegram.Login.auth({ bot_id: botId, request_access: 'write' }, async (data) => {
+        try {
+          if (!data) return
+          const path = mode === 'link' ? '/api/account/link/telegram' : '/api/auth/telegram'
+          onDone(await api(path, { method: 'POST', body: data }))
+        } catch (e) { toast(e.message, 'error') } finally { setBusy(false) }
+      })
+      setTimeout(() => setBusy(false), 4000)   // popup open; let the button be pressed again if it was closed
+    } catch { toast('Could not reach Telegram. Try again.', 'error'); setBusy(false) }
+  }
+  return (
+    <button type="button" onClick={go} disabled={busy} className="btn-ghost w-full py-3">
+      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden><circle cx="12" cy="12" r="12" fill="#2AABEE" /><path fill="#fff" d="M5.4 11.8 16.9 7.4c.5-.2 1 .1.8.9l-2 9.3c-.1.6-.5.8-1.1.5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5c.2-.2 0-.3-.4-.1l-6.9 4.3-3-.9c-.6-.2-.7-.6.2-1z" /></svg>
+      {label}
+    </button>
+  )
 }

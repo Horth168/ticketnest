@@ -92,7 +92,10 @@ def public_settings(db: Session) -> dict:
     commission, markup = fees(db)
     pay = get_setting(db, "payments")
     data["telegram"] = {"support_username": tg["support_username"], "delivery_username": tg["delivery_username"],
-                        "mini_app_url": tg["mini_app_url"], "login_bot_username": social.telegram_bot_username()}
+                        "mini_app_url": tg["mini_app_url"], "login_bot_username": social.telegram_bot_username(),
+                        # the bot's numeric id is public (it is the bot's user id), used by the sign-in popup
+                        "login_bot_id": (settings.TELEGRAM_BOT_TOKEN.split(":", 1)[0]
+                                         if settings.TELEGRAM_BOT_TOKEN.split(":", 1)[0].isdigit() else "")}
     data["fees"] = {"seller_commission_bps": commission, "buyer_markup_bps": markup}
     data["payments"] = {"khqr_enabled": bool(pay["khqr_enabled"] and pay["khqr_template"]),
                         "qr_expiry_minutes": pay["qr_expiry_minutes"]}

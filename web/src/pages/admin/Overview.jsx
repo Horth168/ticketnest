@@ -1,11 +1,11 @@
 import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDashed, DollarSign, Package, Send, Ticket, TrendingUp } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ErrorNote, Loading, OrderBadge } from '../../components/ui'
 import { useApp } from '../../context/App'
 import { api } from '../../lib/api'
 import { cls, dateTime, usd, usd2 } from '../../lib/format'
-import { H, Tabs } from './AdminApp'
+import { H } from './AdminApp'
 
 const STATUS_COLORS = { available: '#10B981', pending: '#F59E0B', reserved: '#6D4BFF', sold: '#64748B', rejected: '#EF4444', cancelled: '#A1A1AA', disabled: '#F97316', approved: '#22C55E' }
 
@@ -24,29 +24,88 @@ function KPI({ icon: Icon, label, value, hint, tone = 'accent', to }) {
   return to ? <Link to={to}>{body}</Link> : body
 }
 
-function BarChart({ data, metric }) {
+const day = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+
+function niceMax(v) {
+  if (v <= 4) return 4
+  const p = 10 ** Math.floor(Math.log10(v)), n = v / p
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p
+}
+
+// Clean area chart: soft gradient fill, three gridlines with labels, a hover crosshair + tooltip.
+function AreaChart({ data, metric }) {
+  const box = useRef(null)
+  const [w, setW] = useState(640)
   const [hover, setHover] = useState(null)
-  const max = Math.max(1, ...data.map((d) => d[metric]))
-  const fmt = (v) => (metric === 'tickets' ? `${v} tickets` : usd(v))
+  useEffect(() => {
+    const ro = new ResizeObserver(([e]) => setW(Math.max(260, e.contentRect.width)))
+    ro.observe(box.current)
+    return () => ro.disconnect()
+  }, [])
+  const money = metric !== 'tickets'
+  const fmt = (v) => (money ? usd(v) : `${v}`)
+  const H = 200, padL = money ? 52 : 30, padR = 8, padT = 12, padB = 26
+  const top = niceMax(Math.max(...data.map((d) => d[metric]), 0))
+  const iw = w - padL - padR, ih = H - padT - padB
+  const x = (i) => padL + (data.length === 1 ? iw / 2 : (i / (data.length - 1)) * iw)
+  const y = (v) => padT + ih - (v / top) * ih
+  const pts = data.map((d, i) => [x(i), y(d[metric])])
+  const line = pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join('')
+  const area = `${line}L${x(data.length - 1)},${padT + ih}L${x(0)},${padT + ih}Z`
+  const ticks = [0, top / 2, top]
+  const labelEvery = Math.ceil(data.length / (w < 420 ? 4 : 7))
+  const move = (e) => {
+    const r = box.current.getBoundingClientRect()
+    const i = Math.round(((e.clientX - r.left - padL) / iw) * (data.length - 1))
+    setHover(Math.min(data.length - 1, Math.max(0, i)))
+  }
+  const h = hover !== null ? data[hover] : null
   return (
-    <div className="relative">
-      <div className="flex h-48 items-end gap-[3px] sm:gap-1.5">
-        {data.map((d, i) => (
-          <div key={d.date} className="group relative flex h-full flex-1 items-end" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} onClick={() => setHover(i)}>
-            <div className={cls('bar-grow w-full rounded-t-md transition-colors', d[metric] ? 'bg-accent/70 group-hover:bg-accent' : 'bg-line')}
-              style={{ height: `${Math.max(3, (d[metric] / max) * 100)}%`, animationDelay: `${i * 15}ms` }} />
-          </div>
+    <div ref={box} className="relative select-none" onMouseMove={move} onMouseLeave={() => setHover(null)} onTouchStart={(e) => move(e.touches[0])} onTouchMove={(e) => move(e.touches[0])}>
+      <svg width={w} height={H} className="block overflow-visible text-accent">
+        <defs>
+          <linearGradient id="area-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="currentColor" stopOpacity=".28" /><stop offset="1" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={padL} x2={w - padR} y1={y(t)} y2={y(t)} className="stroke-line" strokeDasharray={t ? '3 4' : undefined} />
+            <text x={padL - 8} y={y(t)} textAnchor="end" dominantBaseline="central" className="fill-muted text-[11px] tabular-nums">{fmt(t)}</text>
+          </g>
         ))}
-      </div>
-      {hover !== null && (
-        <div className="pop pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-lg bg-ink px-2.5 py-1.5 text-[12px] text-bg shadow-lift">
-          {new Date(data[hover].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}: <b>{fmt(data[hover][metric])}</b>
+        <path d={area} fill="url(#area-fill)" className="page-in" />
+        <path d={line} fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round" className="line-draw" style={{ '--len': 3000 }} />
+        {data.map((d, i) => ((i % labelEvery === 0 && data.length - 1 - i >= labelEvery * 0.7) || i === data.length - 1) && (
+          <text key={d.date} x={x(i)} y={H - 6} textAnchor={i === 0 ? 'start' : i === data.length - 1 ? 'end' : 'middle'} className="fill-muted text-[11px]">
+            {i === data.length - 1 ? 'Today' : day(d.date)}
+          </text>
+        ))}
+        {h && (
+          <g>
+            <line x1={pts[hover][0]} x2={pts[hover][0]} y1={padT} y2={padT + ih} className="stroke-muted/40" strokeDasharray="2 3" />
+            <circle cx={pts[hover][0]} cy={pts[hover][1]} r="5" fill="currentColor" className="stroke-surface" strokeWidth="2.5" />
+          </g>
+        )}
+      </svg>
+      {h && (
+        <div className="pointer-events-none absolute top-0 whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-[12px] text-bg shadow-lift"
+          style={{ left: Math.min(Math.max(pts[hover][0], 60), w - 60), transform: 'translate(-50%, -110%)' }}>
+          <span className="text-bg/70">{day(h.date)}</span> · <b>{money ? usd2(h[metric]) : `${h[metric]} ticket${h[metric] === 1 ? '' : 's'}`}</b>
+          {h.orders > 0 && <span className="text-bg/70"> · {h.orders} order{h.orders === 1 ? '' : 's'}</span>}
         </div>
       )}
-      <div className="mt-2 flex justify-between text-[11px] text-muted">
-        <span>{new Date(data[0].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
-        <span>Today</span>
-      </div>
+    </div>
+  )
+}
+
+function Segmented({ value, onChange, options }) {
+  return (
+    <div className="inline-flex rounded-xl bg-raised p-1">
+      {options.map(([v, l]) => (
+        <button key={v} onClick={() => onChange(v)}
+          className={cls('rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition', value === v ? 'bg-surface text-ink shadow-[0_1px_3px_rgba(0,0,0,.12)]' : 'text-muted hover:text-ink')}>{l}</button>
+      ))}
     </div>
   )
 }
@@ -111,18 +170,17 @@ export function Overview() {
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_340px]">
-        <div className="card rise p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="card rise min-w-0 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="font-semibold">{metric === 'tickets' ? 'Tickets sold' : 'Sales'}</p>
-              <p className="font-display text-2xl font-bold tabular-nums">{metric === 'tickets' ? sum('tickets') : usd2(sum('revenue_cents'))}<span className="ml-2 text-sm font-normal text-muted">last {range} days</span></p>
+              <p className="text-[13px] font-medium text-muted">{{ tickets: 'Tickets sold', revenue_cents: 'Total sales', platform_cents: 'TicketNest revenue' }[metric]} · last {range} days</p>
+              <p className="mt-1 font-display text-[28px] font-bold leading-none tabular-nums">{metric === 'tickets' ? sum('tickets') : usd2(sum(metric))}</p>
+              <p className="mt-1.5 text-[12px] text-muted">{sum('orders')} paid order{sum('orders') === 1 ? '' : 's'} · {metric === 'tickets' ? `${(sum('tickets') / range).toFixed(1)} per day` : `${usd2(Math.round(sum(metric) / range))} per day`}</p>
             </div>
-            <div className="flex min-w-0 max-w-full flex-wrap gap-x-2 [&>div]:mb-0">
-              <Tabs value={metric} onChange={setMetric} options={[['tickets', 'Tickets'], ['revenue_cents', 'Sales'], ['platform_cents', 'Revenue']]} />
-              <Tabs value={range} onChange={setRange} options={[[7, '7d'], [14, '14d'], [30, '30d']]} />
-            </div>
+            <Segmented value={range} onChange={setRange} options={[[7, '7D'], [14, '14D'], [30, '30D']]} />
           </div>
-          <div className="mt-4"><BarChart key={`${metric}${range}`} data={series} metric={metric} /></div>
+          <div className="mt-4"><Segmented value={metric} onChange={setMetric} options={[['tickets', 'Tickets'], ['revenue_cents', 'Sales'], ['platform_cents', 'Revenue']]} /></div>
+          <div className="mt-5"><AreaChart key={`${metric}${range}`} data={series} metric={metric} /></div>
         </div>
         <div className="card rise p-5">
           <p className="mb-4 font-semibold">Listings by status</p>

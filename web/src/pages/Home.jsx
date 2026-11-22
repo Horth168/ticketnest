@@ -2,7 +2,7 @@ import { ArrowRight, BadgeCheck, CreditCard, MessageCircle, ShieldCheck, Sparkle
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArtistImage, ArtistTile, ConcertCard, isLogo, SkeletonCards } from '../components/cards'
+import { ArtistTile, ConcertCard, isLogo, SkeletonCards } from '../components/cards'
 import { SearchBox, TelegramIcon, useMiniAppUrl } from '../components/Layout'
 import LiveStage from '../components/LiveStage'
 import { Reveal } from '../components/Motion'
@@ -10,7 +10,7 @@ import { Empty, ErrorNote } from '../components/ui'
 import { useApp } from '../context/App'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
-import { cls, dateShort, usd } from '../lib/format'
+import { dateShort, usd } from '../lib/format'
 
 export function useHome() {
   const [data, setData] = useState(null)
@@ -126,21 +126,31 @@ export default function Home() {
 }
 
 function ArtistMarquee({ artists }) {
-  const list = [...artists, ...artists]
+  const { t } = useT()
+  // repeat the set so one copy is always wider than the screen, then loop by exactly one copy (-50%)
+  const reps = Math.max(2, Math.ceil(16 / artists.length)) * 2
+  const list = Array.from({ length: reps }, () => artists).flat()
   return (
-    <div className="relative overflow-hidden border-y border-line bg-surface py-5" aria-label="Artists">
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-surface to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-surface to-transparent" />
-      <div className="marquee flex w-max items-center gap-4 hover:[animation-play-state:paused]">
-        {list.map((a, i) => (
-          <Link key={`${a.id}-${i}`} to={`/artists/${a.slug}`}
-            className={cls('group grid h-14 w-36 shrink-0 place-items-center overflow-hidden rounded-2xl border border-line transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card',
-              isLogo(a.image_url) ? 'bg-white' : 'bg-raised')} title={a.name}>
-            {a.image_url ? <ArtistImage a={a} className={isLogo(a.image_url) ? '!p-3' : ''} /> : <span className="font-display text-sm font-bold">{a.name}</span>}
-          </Link>
-        ))}
+    <section className="border-b border-line bg-surface py-7 sm:py-8" aria-label={t('Artists on TicketNest')}>
+      <p className="mb-5 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{t('Artists on TicketNest')}</p>
+      <div className="marquee-mask overflow-hidden">
+        <div className="marquee flex w-max items-center gap-3 py-1 hover:[animation-play-state:paused] sm:gap-4">
+          {list.map((a, i) => (
+            <Link key={`${a.id}-${i}`} to={`/artists/${a.slug}`} title={a.name} aria-hidden={i >= artists.length || undefined}
+              tabIndex={i >= artists.length ? -1 : undefined}
+              className="group flex h-14 w-36 shrink-0 items-center justify-center gap-2.5 rounded-2xl border border-black/[.06] bg-white px-4 shadow-[0_1px_2px_rgba(0,0,0,.04)] transition duration-300 hover:-translate-y-0.5 hover:shadow-card sm:h-16 sm:w-44">
+              {a.image_url && isLogo(a.image_url)
+                ? <img src={a.image_url} alt={a.name} loading="lazy" draggable="false"
+                    className="max-h-7 max-w-[100px] object-contain opacity-90 transition duration-300 group-hover:opacity-100 sm:max-h-8 sm:max-w-[120px]" />
+                : <>
+                    {a.image_url && <img src={a.image_url} alt="" loading="lazy" className="h-8 w-8 shrink-0 rounded-full object-cover" />}
+                    <span className="truncate font-display text-[14px] font-bold tracking-tight text-neutral-800">{a.name}</span>
+                  </>}
+            </Link>
+          ))}
+        </div>
       </div>
-    </div>
+    </section>
   )
 }
 

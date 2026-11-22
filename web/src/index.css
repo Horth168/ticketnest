@@ -93,26 +93,27 @@ h1, h2, h3, .font-display { font-family: theme('fontFamily.display'); letter-spa
 @keyframes float-y { 50% { transform: translateY(-6px) } }
 .float { animation: float-y 4s ease-in-out infinite; }
 
-/* ---------------- hero: live concert stage ---------------- */
-@keyframes beam-a { 0%,100% { transform: rotate(-22deg) } 50% { transform: rotate(14deg) } }
-@keyframes beam-b { 0%,100% { transform: rotate(18deg) } 50% { transform: rotate(-16deg) } }
-@keyframes beam-c { 0%,100% { transform: rotate(-6deg) } 50% { transform: rotate(8deg) } }
-@keyframes hue { 0%,100% { filter: hue-rotate(0deg) } 50% { filter: hue-rotate(60deg) } }
-@keyframes twinkle { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
-@keyframes sway { 0%,100% { transform: rotate(-14deg) } 50% { transform: rotate(14deg) } }
+/* ---------------- hero: live concert haze ---------------- */
+@keyframes haze-a { 0%,100% { transform: translateX(-50%) rotate(-16deg) } 50% { transform: translateX(-50%) rotate(12deg) } }
+@keyframes haze-b { 0%,100% { transform: translateX(-50%) rotate(14deg) } 50% { transform: translateX(-50%) rotate(-10deg) } }
+@keyframes haze-drift { 0%,100% { transform: translateX(-4%) } 50% { transform: translateX(4%) } }
+@keyframes flare { 0%,100% { opacity: .75 } 50% { opacity: 1 } }
 @keyframes pulse-glow { 0%,100% { opacity: .55; transform: scale(1) } 50% { opacity: .9; transform: scale(1.08) } }
-@keyframes drift { from { transform: translateY(0) } to { transform: translateY(-110vh) } }
 @keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-.beam { transform-origin: 50% 0; mix-blend-mode: screen; }
-.beam-a { animation: beam-a 9s ease-in-out infinite; }
-.beam-b { animation: beam-b 11s ease-in-out infinite; }
-.beam-c { animation: beam-c 7s ease-in-out infinite; }
-.stage-hue { animation: hue 16s ease-in-out infinite; }
-.twinkle { animation: twinkle 2.4s ease-in-out infinite; }
-.lightstick { transform-box: fill-box; transform-origin: 50% 100%; animation: sway 2.2s ease-in-out infinite; }
+.haze-beam { position: absolute; top: -6%; width: 170px; height: 115%; transform-origin: 50% 0; filter: blur(26px);
+  will-change: transform; }
+.haze-beam > i { position: absolute; inset: 0; clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%); }
+@media (min-width: 768px) { .haze-beam { width: 300px; } }
+.haze-a { animation: haze-a 18s ease-in-out infinite; }
+.haze-b { animation: haze-b 23s ease-in-out infinite; }
+.haze-drift { animation: haze-drift 26s ease-in-out infinite; }
+.flare { animation: flare 6s ease-in-out infinite; }
 .glow { animation: pulse-glow 5s ease-in-out infinite; }
-.confetti { animation: drift linear infinite; }
-.marquee { animation: marquee 40s linear infinite; }
+.marquee { animation: marquee 45s linear infinite; }
+@keyframes twinkle { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+.twinkle { animation: twinkle 2.4s ease-in-out infinite; }
+.marquee-mask { -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
 @keyframes pulse-soft { 50% { opacity: .55 } }
 .skeleton { @apply rounded-xl bg-line/60; animation: pulse-soft 1.4s ease-in-out infinite; }
 

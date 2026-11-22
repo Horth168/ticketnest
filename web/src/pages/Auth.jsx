@@ -46,6 +46,17 @@ function useAfterLogin() {
   }
 }
 
+function SocialRow({ onDone }) {
+  const { settings } = useApp()
+  if (!settings?.auth?.google_client_id && !settings?.telegram?.login_bot_id) return null
+  return (
+    <>
+      <div className="flex gap-3 [&>*]:min-w-0 [&>*]:flex-1"><GoogleButton onDone={onDone} label="Google" /><TelegramButton onDone={onDone} label="Telegram" /></div>
+      <Divider />
+    </>
+  )
+}
+
 function Divider() {
   const { t } = useT()
   return <div className="my-5 flex items-center gap-3 text-[12px] text-muted"><span className="h-px flex-1 bg-line" />{t('or')}<span className="h-px flex-1 bg-line" /></div>
@@ -65,8 +76,7 @@ export function Login() {
   const next = sp.get('next') ? `?next=${encodeURIComponent(sp.get('next'))}` : ''
   return (
     <Shell title={t('Welcome back')} sub={t('Sign in to buy, sell and track your tickets.')}>
-      <div className="space-y-3"><GoogleButton onDone={done} label={t('Continue with Google')} /><TelegramButton onDone={done} /></div>
-      <Divider />
+      <SocialRow onDone={done} />
       <form onSubmit={submit} className="space-y-4">
         <Field label={t('Email')}><input className="input" type="email" autoComplete="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required /></Field>
         <Field label={t('Password')}><PasswordInput value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required /></Field>
@@ -98,8 +108,7 @@ export function Register() {
   const next = sp.get('next') ? `?next=${encodeURIComponent(sp.get('next'))}` : ''
   return (
     <Shell title={t('Create your account')} sub={t('Buy and sell K-pop tickets in minutes.')}>
-      <div className="space-y-3"><GoogleButton onDone={done} label={t('Sign up with Google')} /><TelegramButton onDone={done} /></div>
-      <Divider />
+      <SocialRow onDone={done} />
       <form onSubmit={submit} className="space-y-4">
         <Field label={t('Full name')} error={errFor('full_name')}><input className="input" autoComplete="name" value={f.full_name} onChange={set('full_name')} required minLength={2} /></Field>
         <Field label={t('Email')} error={errFor('email')}><input className="input" type="email" autoComplete="email" value={f.email} onChange={set('email')} required /></Field>

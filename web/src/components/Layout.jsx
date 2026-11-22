@@ -190,39 +190,21 @@ function Footer() {
   const { settings, siteName } = useApp()
   const { t } = useT()
   const support = settings?.telegram?.support_username
-  const miniUrl = useMiniAppUrl()
+  const links = [['/concerts', t('Concerts')], ['/sell', t('Sell')], ['/how-it-works', t('How it works')],
+    ['/policies/refunds', t('Refunds')], ['/policies/terms', t('Terms')], ['/policies/privacy', t('Privacy')]]
   return (
-    <footer className="mt-24 border-t border-line bg-surface">
-      <div className="page grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="sm:col-span-2">
-          <Logo />
-          <p className="mt-3 max-w-xs text-sm text-muted">{t('The trusted way to buy and sell K-pop concert tickets.')}</p>
-          <a href={miniUrl} target="_blank" rel="noreferrer" className="btn mt-5 bg-[#229ED9] text-white hover:brightness-110"><TelegramIcon />{t('Open in Telegram')}</a>
-          <div className="mt-4"><LangSwitch up /></div>
-        </div>
-        <FooterCol title={t('Marketplace')} links={[['/concerts', t('Explore concerts')], ['/artists', t('Artists')], ['/sell', t('Sell your tickets')], ['/how-it-works', t('How it works')]]} />
-        <FooterCol title={t('Trust')} links={[['/policies/authenticity', t('Ticket authenticity')], ['/policies/refunds', t('Refund policy')], ['/policies/terms', t('Terms of use')], ['/policies/privacy', t('Privacy')]]} />
-        <div>
-          <p className="eyebrow mb-3">{t('Support')}</p>
-          {support ? <a href={`https://t.me/${support}`} target="_blank" rel="noreferrer" className="text-sm font-medium text-accent hover:underline">@{support}</a>
-            : <p className="text-sm text-muted">{t('Use the chat button for help.')}</p>}
-          <p className="mt-2 text-sm text-muted">{t('Payments by KHQR · Bakong')}</p>
-        </div>
+    <footer className="mt-24 border-t border-line">
+      <div className="page flex flex-col gap-5 py-8 md:flex-row md:items-center md:justify-between">
+        <Logo />
+        <nav className="flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-muted">
+          {links.map(([to, l]) => <Link key={to} to={to} className="transition hover:text-ink">{l}</Link>)}
+          {support && <a href={`https://t.me/${support}`} target="_blank" rel="noreferrer" className="transition hover:text-ink">{t('Support')}</a>}
+        </nav>
+        <LangSwitch up />
       </div>
-      <div className="border-t border-line">
-        <p className="page py-5 text-[12px] leading-relaxed text-muted">
-          © {new Date().getFullYear()} {siteName}. {t('An independent resale marketplace, not affiliated with any artist, agency, promoter or official ticket seller. Artist names and logos belong to their owners.')}
-        </p>
-      </div>
+      <p className="page border-t border-line py-4 text-[11.5px] leading-relaxed text-muted">
+        © {new Date().getFullYear()} {siteName} · {t('Independent resale marketplace, not affiliated with any artist or official seller.')}
+      </p>
     </footer>
-  )
-}
-
-function FooterCol({ title, links }) {
-  return (
-    <div>
-      <p className="eyebrow mb-3">{title}</p>
-      <ul className="space-y-2">{links.map(([to, l]) => <li key={to}><Link to={to} className="text-sm text-muted transition hover:text-ink">{l}</Link></li>)}</ul>
-    </div>
   )
 }
