@@ -343,3 +343,33 @@ def test_qr_image_supports_head_and_download(client, setup):
     d = client.get(url + "&download=1")
     assert d.status_code == 200 and d.headers["content-disposition"].startswith("attachment")
     assert client.get(url).headers["content-disposition"].startswith("inline")
+
+
+def test_telegram_follows_group_upgraded_to_supergroup(monkeypatch):
+    """Telegram moves a group to a new id when it becomes a supergroup; alerts must follow it."""
+    from app.services import telegram as tg
+    from app.database import SessionLocal
+    from app.models import PlatformSetting
+    sent = []
+
+    class R:
+        def __init__(self, d): self.d = d
+        def json(self): return self.d
+
+    def post(url, json=None, **kw):
+        sent.append(json["chat_id"])
+        if json["chat_id"] == "-1009990001":
+            return R({"ok": False, "description": "Bad Request: group chat was upgraded to a supergroup chat",
+                      "parameters": {"migrate_to_chat_id": -1005550001}})
+        assert "_retried" not in json
+        return R({"ok": True})
+    from conftest import REAL_TG_CALL
+    monkeypatch.setattr(tg, "call", REAL_TG_CALL)
+    monkeypatch.setattr(tg.httpx, "post", post)
+    monkeypatch.setattr(tg, "_moved", None)
+    assert tg.call("sendMessage", chat_id="-1009990001", text="hi")["ok"]
+    assert sent == ["-1009990001", "-1005550001"]
+    assert tg.admin_targets() == ["-1005550001"]                 # later alerts go straight to the new group
+    with SessionLocal() as s:
+        assert s.get(PlatformSetting, tg.MOVED_KEY).value == {"-1009990001": "-1005550001"}
+    monkeypatch.setattr(tg, "_moved", None)

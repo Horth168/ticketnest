@@ -38,8 +38,65 @@ def is_admin(telegram_user_id) -> bool:
 
 def admin_targets() -> list[str]:
     if settings.TELEGRAM_ADMIN_GROUP_ID.strip():
-        return [settings.TELEGRAM_ADMIN_GROUP_ID.strip()]
+        return [resolve_chat(settings.TELEGRAM_ADMIN_GROUP_ID.strip())]
     return [str(i) for i in sorted(settings.admin_telegram_ids)]
+
+
+# ---------------------------------------------------------------- groups that Telegram moved
+# When a group changes some settings, Telegram upgrades it to a "supergroup" with a NEW chat id and
+# refuses messages to the old one ("group chat was upgraded to a supergroup chat", with the new id in
+# parameters.migrate_to_chat_id). We remember old -> new in the database and resend, so alerts keep
+# working without anyone touching the server settings.
+MOVED_KEY = "telegram_moved_chats"
+_moved: dict[str, str] | None = None
+_moved_lock = threading.Lock()
+
+
+def _load_moved() -> dict[str, str]:
+    global _moved
+    if _moved is None:
+        try:
+            from app.database import SessionLocal
+            from app.models import PlatformSetting
+            with SessionLocal() as db:
+                row = db.get(PlatformSetting, MOVED_KEY)
+                _moved = dict(row.value) if row and isinstance(row.value, dict) else {}
+        except Exception:  # noqa: BLE001 (no database yet, e.g. during startup)
+            return {}
+    return _moved
+
+
+def resolve_chat(chat_id) -> str:
+    cid = str(chat_id)
+    moved = _load_moved()
+    for _ in range(3):           # follow a chain of moves, at most a few steps
+        if cid not in moved:
+            break
+        cid = moved[cid]
+    return cid
+
+
+def remember_moved(old, new) -> None:
+    global _moved
+    old, new = str(old), str(new)
+    with _moved_lock:
+        moved = dict(_load_moved())
+        moved[old] = new
+        _moved = moved
+    try:
+        from app.database import SessionLocal
+        from app.models import PlatformSetting
+        with SessionLocal() as db:
+            row = db.get(PlatformSetting, MOVED_KEY)
+            if row:
+                row.value = moved
+            else:
+                db.add(PlatformSetting(key=MOVED_KEY, value=moved))
+            db.commit()
+    except Exception:  # noqa: BLE001
+        log.exception("Could not save the moved Telegram chat id")
+    log.warning("Telegram group %s became supergroup %s. Messages now go to the new id; you can also set "
+                "TELEGRAM_ADMIN_GROUP_ID=%s on the server.", old, new, new)
 
 
 def webhook_secret() -> str:
@@ -59,7 +116,10 @@ def call(method: str, files: dict | None = None, **payload) -> dict | None:
     if not enabled():
         return None
     try:
+        retried = payload.pop("_retried", False)
         url = API.format(token=settings.TELEGRAM_BOT_TOKEN, method=method)
+        if "chat_id" in payload:
+            payload["chat_id"] = resolve_chat(payload["chat_id"])
         if files:   # multipart upload (photos / documents); other fields are sent as form data
             import json as _json
             form = {k: (_json.dumps(v) if isinstance(v, (dict, list)) else str(v)) for k, v in payload.items()}
@@ -67,6 +127,10 @@ def call(method: str, files: dict | None = None, **payload) -> dict | None:
         else:
             r = httpx.post(url, json=payload, timeout=20)
         data = r.json()
+        moved_to = (data.get("parameters") or {}).get("migrate_to_chat_id")
+        if not data.get("ok") and moved_to and "chat_id" in payload and not retried:
+            remember_moved(payload["chat_id"], moved_to)
+            return call(method, files, **{**payload, "chat_id": str(moved_to), "_retried": True})
         if not data.get("ok"):
             log.warning("Telegram %s failed: %s", method, data.get("description"))
         return data

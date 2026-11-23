@@ -31,6 +31,7 @@ from app.security import hash_password  # noqa: E402
 from app.services import email as mail, khqr, telegram as tg  # noqa: E402
 from app.utils import utcnow  # noqa: E402
 
+REAL_TG_CALL = tg.call   # the real sender, for tests that exercise it with a fake HTTP layer
 TG_SENT: list = []
 BOT_CALLS: list = []
 
