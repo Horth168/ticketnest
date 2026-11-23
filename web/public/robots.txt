@@ -11,4 +11,4 @@ Disallow: /register
 Disallow: /forgot-password
 Disallow: /reset-password
 
-Sitemap: https://ticketnest-api.onrender.com/sitemap.xml
+Sitemap: https://ticketnest-web.onrender.com/sitemap.xml
