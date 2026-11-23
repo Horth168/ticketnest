@@ -319,3 +319,15 @@ def test_sitemap_lists_public_pages_only(client, setup):
     xml = client.get("/sitemap.xml").text
     assert f"/concerts/{setup['concert']['slug']}" in xml and "/guarantee" in xml
     assert demo.SLUG not in xml and "/admin" not in xml
+
+
+def test_report_alert_reaches_admin_group_with_contact_buttons(client, setup):
+    o = _paid_order(client, setup)
+    TG_SENT.clear()
+    client.post(f"/api/orders/{o['order_number']}/report", headers=setup["buyer"],
+                json={"reason": "not_received", "details": "Nobody sent me the ticket yet, please help."})
+    alert = next(m for m in TG_SENT if m["kind"] == "order_issue")
+    assert alert["chat"] == "-1009990001"                     # the admin group, not a customer chat
+    assert "Ticket not received" in alert["text"] and "Nobody sent me the ticket" in alert["text"]
+    urls = [b.get("url") for row in alert["buttons"] for b in row]
+    assert "https://t.me/dara_buyer" in urls                  # one tap to message the buyer

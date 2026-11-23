@@ -28,6 +28,10 @@ if (window.Telegram?.WebApp?.initData && !location.pathname.startsWith('/tg')) {
 
 installErrorReporting()
 
+// iPhone Safari ignores user-scalable=no, so block pinch-zoom gestures here too (app feel, no dizzy zooming)
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false })
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault() }, { passive: false })
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>

@@ -155,7 +155,7 @@ def to_user(db: Session, user: User | None, text: str, *, kind: str, buttons=Non
 
 def _support_button(db: Session) -> list[list[dict]] | None:
     name = get_setting(db, "telegram")["delivery_username"]
-    return [[{"text": "💬 Message TicketNest", "url": f"https://t.me/{name}"}]] if name else None
+    return [[{"text": "💬 TicketNest Support", "url": f"https://t.me/{name}"}]] if name else None
 
 
 def customer_order_update(db: Session, order: Order, kind: str) -> None:
@@ -221,8 +221,13 @@ def order_issue(db: Session, order: Order) -> None:
                        f"Reason: <b>{e(REPORT_REASONS.get(order.issue_reason, order.issue_reason))}</b>\n"
                        f"“{e(order.issue_details[:600])}”\nBuyer: {e(order.contact_name)} · "
                        f"{e('@' + order.contact_telegram if order.contact_telegram else '-')}\n\n"
-                       "The seller's payout is frozen until you dismiss the report or refund the buyer."
-                   + _admin_link(f"/orders/{order.id}"), kind="order_issue", buttons=order_buttons(order.id))
+                       f"Delivered: {fmt_local(order.delivered_at) if order.delivered_at else 'not yet'}\n"
+                       f"Concert: {fmt_local(it.concert_starts_at)}\n\n"
+                       "⚠️ The seller's payout is frozen. Contact the buyer, check with the seller, then "
+                       "dismiss the report or refund the buyer in the admin dashboard."
+                   + _admin_link(f"/orders/{order.id}"), kind="order_issue",
+                   buttons=([[{"text": "💬 Message buyer", "url": f"https://t.me/{order.contact_telegram}"}]]
+                            if order.contact_telegram else []) + order_buttons(order.id))
 
 
 def buyer_confirmed(db: Session, order: Order) -> None:

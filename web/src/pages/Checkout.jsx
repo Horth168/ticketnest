@@ -162,7 +162,7 @@ export function OrderPage() {
                 <p className="text-lg font-semibold">{t('Payment confirmed')}</p></div>
               <p className="mt-3 leading-relaxed text-muted">{t('Your payment has been confirmed. Our team will contact you through Telegram to deliver your ticket.')}</p>
               <p className="mt-2 text-sm text-muted">{t("We'll message @{user}. Tickets are sent by a person, not automatically, usually within 24 hours.", { user: o.contact.telegram })}</p>
-              {tgUser && <button onClick={() => openExternal(`https://t.me/${tgUser}`)} className="btn-accent mt-4"><MessageCircle className="h-4 w-4" />{t('Message @{user} on Telegram', { user: tgUser })}</button>}
+              {tgUser && <button onClick={() => openExternal(`https://t.me/${tgUser}`)} className="btn-accent mt-4"><MessageCircle className="h-4 w-4" />{t('Contact TicketNest Support')}</button>}
             </div>
           )}
           {['delivered', 'completed'].includes(o.status) && (

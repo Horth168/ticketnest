@@ -92,7 +92,7 @@ const DOCS = {
       ['ul', ['You may only list tickets you own and have the right to transfer, and you must not sell the same ticket elsewhere.',
         'You must upload a genuine ticket proof and purchase receipt. All listings are reviewed before going live, and we may reject or remove listings at any time.',
         'You must transfer the ticket when we ask. If a sale fails because of the seller, the buyer is refunded and the seller is not paid.',
-        'You are paid only after a buyer purchases your ticket and receives it. Your earnings (listing price minus commission) then become available in your wallet and can be withdrawn after review.']],
+        'You are paid after the concert, not when a buyer buys your ticket. Your earnings (listing price minus commission) reach your wallet 24 to 48 hours after the concert ends, once the buyer has the ticket and has not reported a problem. You can then request a withdrawal.']],
       ['h', 'Prohibited'],
       ['p', "Fake or altered tickets or receipts, speculative listings for tickets you don't hold yet, and any attempt to pay or confirm payments dishonestly. We suspend accounts that break these rules."],
     ]],
@@ -104,7 +104,7 @@ const DOCS = {
       ['ul', ['អ្នកអាចដាក់លក់តែសំបុត្រដែលជារបស់អ្នក និងមានសិទ្ធិផ្ទេរ ហើយមិនត្រូវលក់សំបុត្រដដែលនៅកន្លែងផ្សេង។',
         'អ្នកត្រូវផ្ញើភស្តុតាងសំបុត្រ និងបង្កាន់ដៃទិញពិតប្រាកដ។ ការដាក់លក់ទាំងអស់ត្រូវពិនិត្យមុនពេលបង្ហាញ ហើយយើងអាចបដិសេធ ឬដកចេញគ្រប់ពេល។',
         'អ្នកត្រូវផ្ទេរសំបុត្រនៅពេលយើងស្នើ។ ប្រសិនបើការលក់បរាជ័យដោយសារអ្នកលក់ អ្នកទិញនឹងទទួលប្រាក់វិញ ហើយអ្នកលក់មិនទទួលប្រាក់ទេ។',
-        'អ្នកទទួលបានប្រាក់ តែបន្ទាប់ពីអ្នកទិញបានទិញ និងទទួលសំបុត្ររួច។ ប្រាក់ចំណូល (តម្លៃលក់ ដកកម្រៃជើងសារ) នឹងចូលកាបូបរបស់អ្នក ហើយអាចដកបានបន្ទាប់ពីពិនិត្យ។']],
+        'អ្នកទទួលបានប្រាក់បន្ទាប់ពីការប្រគុំតន្ត្រី មិនមែនពេលអ្នកទិញទិញសំបុត្ររបស់អ្នកទេ។ ប្រាក់ចំណូល (តម្លៃដាក់លក់ដកកម្រៃជើងសារ) ចូលកាបូបរបស់អ្នក ២៤ ទៅ ៤៨ ម៉ោងបន្ទាប់ពីការប្រគុំតន្ត្រីបញ្ចប់ នៅពេលអ្នកទិញមានសំបុត្រ ហើយមិនបានរាយការណ៍បញ្ហា។ បន្ទាប់មកអ្នកអាចស្នើដកប្រាក់បាន។']],
       ['h', 'ហាមឃាត់'],
       ['p', 'សំបុត្រ ឬបង្កាន់ដៃក្លែងក្លាយ ឬកែប្រែ ការដាក់លក់សំបុត្រដែលអ្នកមិនទាន់មាន និងការប៉ុនប៉ងបង់ ឬបញ្ជាក់ការបង់ប្រាក់ដោយមិនស្មោះត្រង់។ យើងនឹងផ្អាកគណនីដែលបំពានច្បាប់ទាំងនេះ។'],
     ]],
@@ -116,7 +116,7 @@ const DOCS = {
       ['ul', ['您只能出售您拥有且有权转让的门票，且不得在其他地方出售同一张票。',
         '您必须上传真实的门票凭证和购票收据。所有挂单上架前都会审核，我们可随时拒绝或下架。',
         '我们要求时您必须转让门票。如因卖家原因交易失败，买家将获得退款，卖家不会收到款项。',
-        '只有在买家购买并收到门票后，您才会获得付款。收益（挂单价减去佣金）随后进入您的钱包，经审核后可提现。']],
+        '您的收款时间是在演唱会结束后，而不是买家购票时。收益（挂单价减去佣金）会在演唱会结束后 24 至 48 小时内进入您的钱包，前提是买家已收到门票且未报告问题。之后您即可申请提现。']],
       ['h', '禁止行为'],
       ['p', '伪造或篡改门票或收据、出售尚未持有的门票，以及任何不诚实的付款或确认付款行为。违反规则的账户将被停用。'],
     ]],
@@ -177,7 +177,7 @@ export function HowItWorks() {
       <h2>{t('Delivery')}</h2>
       <p>{t('Tickets are delivered manually. After your payment is verified, a member of our team contacts you on Telegram and sends your ticket. Your order page shows when it has been delivered.')}</p>
       <h2>{t('Getting paid as a seller')}</h2>
-      <p>{t('You are paid when a buyer purchases your ticket and receives it, not when you submit the listing. Your earnings then move to your wallet and you can request a withdrawal.')}</p>
+      <p>{t('You are paid after the concert, not when a buyer buys your ticket. Your earnings (listing price minus commission) reach your wallet 24 to 48 hours after the concert ends, once the buyer has the ticket and has not reported a problem. You can then request a withdrawal.')}</p>
     </Doc>
   )
 }

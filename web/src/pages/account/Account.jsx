@@ -12,7 +12,7 @@ import { inTelegram } from '../../lib/telegram'
 import { openFile } from '../../lib/api'
 
 const TITLES = { settings: 'Profile & settings', listings: 'My listings', wallet: 'Wallet & withdrawals', invoices: 'Invoices', orders: 'My orders' }
-export const PAYOUT_NOTE = 'You are paid when a buyer purchases your ticket and receives it, not when you submit the listing. Your earnings then move to your wallet and you can request a withdrawal.'
+export const PAYOUT_NOTE = 'You are paid after the concert, not when a buyer buys your ticket. Your earnings (listing price minus commission) reach your wallet 24 to 48 hours after the concert ends, once the buyer has the ticket and has not reported a problem. You can then request a withdrawal.'
 
 export default function Account() {
   const { t } = useT()

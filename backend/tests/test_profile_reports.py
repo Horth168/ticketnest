@@ -19,7 +19,7 @@ def test_listing_needs_receipt_and_keeps_payout_qr(client, setup):
     l = create_listing(client, setup)
     assert {f["kind"] for f in l["files"]} == {"proof", "receipt"} and l["has_payout_qr"]
     sub = next(e for e in mail.SYNC_FOR_TESTS if e["kind"] == "listing_submitted")
-    assert "when a buyer purchases your ticket" in sub["text"]
+    assert "after the concert" in sub["text"] and "24 to 48 hours" in sub["text"]
     me = client.get("/api/account/me", headers=setup["seller"]).json()
     assert me["payout"]["has_qr"] and me["payout"]["account_number"] == "000111222"
     assert client.get(f"/api/admin/listings/{l['id']}/payout-qr", headers=setup["admin"]).status_code == 200

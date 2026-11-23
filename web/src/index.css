@@ -39,6 +39,8 @@
 }
 
 html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
+/* app feel on phones: no pinch / double-tap zoom and no sideways drifting of the page (inner sliders still swipe) */
+html, body { overflow-x: clip; max-width: 100%; touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* Khmer and Chinese need their own fonts (Latin text keeps Inter) */
 html[data-lang='km'] body, html[data-lang='km'] h1, html[data-lang='km'] h2, html[data-lang='km'] h3, html[data-lang='km'] .font-display {
   font-family: 'Inter Variable', 'Kantumruy Pro Variable', 'Kantumruy Pro', system-ui, sans-serif; letter-spacing: 0; }
@@ -65,7 +67,7 @@ h1, h2, h3, .font-display { font-family: theme('fontFamily.display'); letter-spa
     background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / .28) 50%, transparent 70%); transition: transform .7s ease; }
   .btn-accent:hover::after, .btn-primary:hover::after { transform: translateX(120%); }
   .btn-danger { @apply btn border border-bad/30 bg-bad/10 text-bad hover:bg-bad/15; }
-  .input { @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[15px] text-ink outline-none
+  .input { @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[16px] text-ink outline-none sm:text-[15px]
            transition placeholder:text-muted/70 focus:border-accent focus:ring-4 focus:ring-accent/15; }
   .label { @apply mb-1.5 block text-[13px] font-medium text-muted; }
   .chip { @apply inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3 py-1.5 text-[13px]

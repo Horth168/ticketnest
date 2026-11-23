@@ -260,8 +260,9 @@ def send_cancelled(order, refunded: bool) -> None:
 
 
 # ---------------------------------------------------------------- seller emails
-PAYOUT_NOTE = ("You are paid when a buyer purchases your ticket and receives it, not when you submit the "
-               "listing. Your earnings then move to your TicketNest wallet and you can request a withdrawal.")
+PAYOUT_NOTE = ("You are paid after the concert, not when a buyer buys your ticket. Your earnings (listing price "
+               "minus commission) reach your TicketNest wallet 24 to 48 hours after the concert ends, once the buyer "
+               "has the ticket and has not reported a problem. You can then request a withdrawal.")
 
 
 def send_listing_submitted(db, listing) -> None:
