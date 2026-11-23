@@ -1,4 +1,5 @@
 import { AlertTriangle, FileText, Lock, MessageCircle, Send, Unlock } from 'lucide-react'
+import { confirmDialog } from '../../components/Dialog'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Badge, Empty, ErrorNote, Field, Loading, Modal, OrderBadge, Row } from '../../components/ui'
@@ -181,7 +182,7 @@ function OrderDetail() {
                   : <p className="text-muted">Released at delivery (before buyer protection)</p>}
               {o.buyer_confirmed_at && <p className="mt-1 text-good">Buyer confirmed receipt {dateTime(o.buyer_confirmed_at)}</p>}
               {admin && !o.payout_released_at && o.payout_release_at && o.issue?.status !== 'open' && (
-                <button className="btn-ghost mt-3 w-full" onClick={() => { if (confirm('Pay the seller now, before the usual hold ends? Only do this if you are sure the ticket is genuine.')) post('release-payout') }}>Release payout now</button>
+                <button className="btn-ghost mt-3 w-full" onClick={async () => { if (await confirmDialog({ title: 'Pay the seller now?', message: 'This releases the earnings before the usual hold ends. Only do this if you are sure the ticket is genuine.', confirmText: 'Release payout' })) post('release-payout') }}>Release payout now</button>
               )}
             </div>
           )}

@@ -125,8 +125,8 @@ def _with_protection(db: Session, order: Order) -> dict:
     return out
 
 
-@router.get("/{number}/qr.png")
-def qr_png(number: str, t: str = "", db: Session = Depends(get_db)):
+@router.api_route("/{number}/qr.png", methods=["GET", "HEAD"])
+def qr_png(number: str, t: str = "", download: int = 0, db: Session = Depends(get_db)):
     """The KHQR as an image, so a buyer on a phone can save it and open it in their banking app.
     Protected by the order's unguessable link token instead of a login (images can't send headers)."""
     import hmac
@@ -138,9 +138,11 @@ def qr_png(number: str, t: str = "", db: Session = Depends(get_db)):
         raise HTTPException(404, "This QR is no longer valid")
     from app.services import khqr_card
     png = khqr_card.render(pay.khqr_payload, pay.amount, pay.currency)
+    # HEAD is answered too (Telegram's "Download" sheet asks for the size first); ?download=1 makes it a file download
+    disposition = "attachment" if download else "inline"
     return Response(png, media_type="image/png",
-                    headers={"Cache-Control": "private, no-store",
-                             "Content-Disposition": f'inline; filename="TicketNest-{number}-KHQR.png"'})
+                    headers={"Cache-Control": "private, no-store", "Content-Length": str(len(png)),
+                             "Content-Disposition": f'{disposition}; filename="TicketNest-{number}-KHQR.png"'})
 
 
 @router.get("/{number}/invoice.pdf")

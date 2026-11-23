@@ -1,4 +1,5 @@
 import { Download, Plus, Search, ShieldCheck, Trash2, Upload, User, UserCog } from 'lucide-react'
+import { confirmDialog } from '../../components/Dialog'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Route, Routes } from 'react-router-dom'
 import { Avatar, Badge, Empty, ErrorNote, Field, Loading, Modal, Poster, Row } from '../../components/ui'
@@ -268,7 +269,7 @@ function ConcertForm({ c, artists, onClose, onSaved }) {
       <ErrorNote error={error} />
       <div className="mt-5 flex gap-2">
         <button className="btn-primary flex-1" disabled={busy} onClick={save}>Save concert</button>
-        {c.id && <button className="btn-danger" onClick={async () => { if (confirm('Delete (or unpublish if it has listings)?')) { await api(`/api/admin/concerts/${c.id}`, { method: 'DELETE' }); onSaved() } }}>Delete</button>}
+        {c.id && <button className="btn-danger" onClick={async () => { if (await confirmDialog({ title: 'Delete this concert?', message: 'If it already has listings it is unpublished instead, so order history stays intact.', confirmText: 'Delete', danger: true })) { await api(`/api/admin/concerts/${c.id}`, { method: 'DELETE' }); onSaved() } }}>Delete</button>}
       </div>
     </Modal>
   )
@@ -331,8 +332,8 @@ function UsersPage() {
   const load = useCallback(() => api(`/api/admin/users?q=${encodeURIComponent(q)}`).then(setRows).catch((e) => toast(e.message, 'error')), [q, toast])
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t) }, [load])
   const patch = async (u, body) => {
-    if (body.role === 'admin' && !window.confirm(`Make ${u.full_name} an admin? Admins can change settings, roles and payouts.`)) return
-    if (body.is_active === false && !window.confirm(`Disable ${u.full_name}? They won't be able to sign in or use their account.`)) return
+    if (body.role === 'admin' && !(await confirmDialog({ title: `Make ${u.full_name} an admin?`, message: 'Admins can change settings, roles and payouts.', confirmText: 'Make admin' }))) return
+    if (body.is_active === false && !(await confirmDialog({ title: `Disable ${u.full_name}?`, message: "They won't be able to sign in or use their account.", confirmText: 'Disable', danger: true }))) return
     try { await api(`/api/admin/users/${u.id}`, { method: 'PATCH', body }); toast('Saved'); load() } catch (e) { toast(e.message, 'error') }
   }
   const all = rows || []
@@ -556,7 +557,7 @@ function ReviewsPage() {
   useEffect(() => { setData(null); load() }, [load])
   const act = async (r, action) => {
     try {
-      if (action === 'delete') { if (!confirm('Delete this review?')) return; await api(`/api/admin/reviews/${r.id}`, { method: 'DELETE' }) }
+      if (action === 'delete') { if (!(await confirmDialog({ title: 'Delete this review?', message: 'This cannot be undone.', confirmText: 'Delete', danger: true }))) return; await api(`/api/admin/reviews/${r.id}`, { method: 'DELETE' }) }
       else await api(`/api/admin/reviews/${r.id}/${action}`, { method: 'POST' })
       toast(action === 'approve' ? 'Review published' : action === 'reject' ? 'Review rejected' : 'Review deleted'); load()
     } catch (e) { toast(e.message, 'error') }

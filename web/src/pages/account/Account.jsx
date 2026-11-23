@@ -1,4 +1,5 @@
 import { Camera, Check, ChevronLeft, CreditCard, FileText, Globe, Info, KeyRound, LogOut, Pencil, QrCode, Receipt, Shield, Ticket, Trash2, Upload, User, Wallet, X } from 'lucide-react'
+import { confirmDialog } from '../../components/Dialog'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { GoogleButton, TelegramButton } from '../../components/SocialSignIn'
@@ -240,7 +241,7 @@ export function MyListings() {
   }, [])
   useEffect(() => { load() }, [load])
   const cancel = async (l) => {
-    if (!confirm(t('Cancel this listing? It will be removed from sale.'))) return
+    if (!(await confirmDialog({ title: t('Cancel this listing?'), message: t('It will be removed from sale.'), confirmText: t('Cancel listing'), cancelText: t('Keep listing'), danger: true }))) return
     try { await api(`/api/sell/listings/${l.id}/cancel`, { method: 'POST' }); toast(t('Listing cancelled')); load() } catch (e) { toast(e.message, 'error') }
   }
   if (!rows) return <Loading />

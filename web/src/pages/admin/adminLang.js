@@ -149,6 +149,14 @@ export const KM = {
   'Pay sellers only after the concert': 'ទូទាត់ឱ្យអ្នកលក់តែបន្ទាប់ពីការប្រគុំតន្ត្រី', 'Release payout (hours after start)': 'ទូទាត់ (ម៉ោងបន្ទាប់ពីចាប់ផ្តើម)',
   'Buyers can report until (hours after start)': 'អ្នកទិញអាចរាយការណ៍រហូតដល់ (ម៉ោងបន្ទាប់ពីចាប់ផ្តើម)', 'Price cap (% of face value)': 'កំណត់តម្លៃខ្ពស់បំផុត (% នៃតម្លៃដើម)',
   'Save buyer protection': 'រក្សាទុកការការពារអ្នកទិញ', "Dismiss the buyer's report": 'បដិសេធរបាយការណ៍របស់អ្នកទិញ', 'What you found (shown to the buyer)': 'អ្វីដែលអ្នករកឃើញ (បង្ហាញដល់អ្នកទិញ)',
+  // in-app dialogs
+  'Delete this concert?': 'លុបការប្រគុំតន្ត្រីនេះ?', 'If it already has listings it is unpublished instead, so order history stays intact.': 'ប្រសិនបើមានការដាក់លក់រួចហើយ វានឹងត្រូវបិទការផ្សាយជំនួសវិញ ដើម្បីរក្សាប្រវត្តិការបញ្ជាទិញ។',
+  'Make admin': 'ធ្វើជាអ្នកគ្រប់គ្រង', 'Admins can change settings, roles and payouts.': 'អ្នកគ្រប់គ្រងអាចប្តូរការកំណត់ តួនាទី និងការទូទាត់។',
+  "They won't be able to sign in or use their account.": 'ពួកគេនឹងមិនអាចចូល ឬប្រើគណនីបានទេ។', 'This cannot be undone.': 'មិនអាចត្រឡប់វិញបានទេ។',
+  'Pay the seller now?': 'ទូទាត់ឱ្យអ្នកលក់ឥឡូវ?', 'Release payout': 'ទូទាត់ឱ្យអ្នកលក់',
+  'This releases the earnings before the usual hold ends. Only do this if you are sure the ticket is genuine.': 'វាផ្តល់ប្រាក់ចំណូលមុនពេលកំណត់ធម្មតា។ ធ្វើវាតែពេលអ្នកប្រាកដថាសំបុត្រពិត។',
+  'Mark tickets sold outside TicketNest': 'កត់ថាសំបុត្របានលក់ក្រៅ TicketNest', 'Mark sold': 'កត់ថាបានលក់',
+  'Use this when tickets from this listing were sold elsewhere, so they are no longer offered here.': 'ប្រើវា ពេលសំបុត្រពីការដាក់លក់នេះត្រូវបានលក់នៅកន្លែងផ្សេង ដើម្បីកុំឱ្យបង្ហាញនៅទីនេះទៀត។',
   // audit
   'Every important action, with who did it.': 'រាល់សកម្មភាពសំខាន់ៗ និងអ្នកដែលបានធ្វើ។', 'Filter, e.g. payment, listing, withdrawal': 'ច្រោះ ឧ. payment, listing, withdrawal',
 }

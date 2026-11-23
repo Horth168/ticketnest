@@ -1,4 +1,5 @@
 import { Check, ExternalLink, Plus, X } from 'lucide-react'
+import { promptDialog } from '../../components/Dialog'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { Empty, ErrorNote, Field, ListingBadge, Loading, Modal, OrderBadge, Row } from '../../components/ui'
@@ -117,7 +118,7 @@ function ListingDetail() {
             {l.status === 'disabled' && <button className="btn-ghost w-full" onClick={() => act('enable')}>Re-enable</button>}
             <button className="btn-ghost w-full" onClick={() => setEdit({ price: l.price_cents / 100, original_price: l.original_price_cents / 100, quantity: l.quantity })}>Edit price / quantity</button>
             {l.available > 0 && <button className="btn-ghost w-full" onClick={async () => {
-              const n = Number(prompt(`Mark how many tickets as sold outside TicketNest? (1–${l.available})`))
+              const n = await promptDialog({ title: 'Mark tickets sold outside TicketNest', message: 'Use this when tickets from this listing were sold elsewhere, so they are no longer offered here.', label: `How many tickets? (1–${l.available})`, type: 'number', min: 1, max: l.available, defaultValue: 1, confirmText: 'Mark sold' })
               if (n) act('mark-sold', { quantity: n })
             }}>Mark tickets sold (offline)</button>}
           </div>

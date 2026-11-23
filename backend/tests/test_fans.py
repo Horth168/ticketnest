@@ -331,3 +331,15 @@ def test_report_alert_reaches_admin_group_with_contact_buttons(client, setup):
     assert "Ticket not received" in alert["text"] and "Nobody sent me the ticket" in alert["text"]
     urls = [b.get("url") for row in alert["buttons"] for b in row]
     assert "https://t.me/dara_buyer" in urls                  # one tap to message the buyer
+
+
+def test_qr_image_supports_head_and_download(client, setup):
+    l = create_listing(client, setup)
+    client.post(f"/api/admin/listings/{l['id']}/approve", headers=setup["admin"])
+    o = checkout(client, setup["buyer"], l["id"]).json()
+    url = o["khqr"]["image_url"]
+    h = client.head(url)
+    assert h.status_code == 200 and int(h.headers["content-length"]) > 10000   # Telegram sees the real size
+    d = client.get(url + "&download=1")
+    assert d.status_code == 200 and d.headers["content-disposition"].startswith("attachment")
+    assert client.get(url).headers["content-disposition"].startswith("inline")

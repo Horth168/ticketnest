@@ -1,14 +1,15 @@
 import HumanCheck, { useHuman } from '../components/HumanCheck'
-import { ArrowLeft, Check, Clock, Copy, Download, ExternalLink, FileText, MessageCircle, ShieldCheck, Smartphone, X } from 'lucide-react'
+import { ArrowLeft, Banknote, BellRing, Check, Clock, Copy, Download, ExternalLink, FileText, ImageDown, MessageCircle, QrCode, ScanLine, ShieldCheck, Smartphone, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import KhqrCard from '../components/KhqrCard'
+import { confirmDialog } from '../components/Dialog'
 import ProtectionPanel, { GuaranteeNote } from '../components/Protection'
 import { Countdown, Empty, ErrorNote, Field, Loading, OrderBadge, Row, Spinner } from '../components/ui'
 import { useApp, useBase, useLink } from '../context/App'
 import { api, apiUrl, openFile } from '../lib/api'
-import { dateLong, dateTime, khr, newKey, pct, time, usd2 } from '../lib/format'
-import { haptic, inTelegram, openExternal, saveImage } from '../lib/telegram'
+import { cls, dateLong, dateTime, khr, newKey, pct, time, usd2 } from '../lib/format'
+import { haptic, inTelegram, isPhone, openExternal, saveImage } from '../lib/telegram'
 import { useMainButton } from '../tg/hooks'
 import { useT } from '../i18n'
 
@@ -205,39 +206,84 @@ function PayPanel({ o, onChange, toast }) {
   const { t } = useT()
   const [expired, setExpired] = useState(o.seconds_left <= 0)
   const [cancelling, setCancelling] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const blob = useRef(null)
   const k = o.khqr
   const amount = k.currency === 'KHR' ? `${k.amount.toLocaleString()} KHR` : `${(k.amount / 100).toFixed(2)}`
+  const shown = k.currency === 'USD' ? usd2(k.amount) : amount
+  const fileName = `TicketNest-${o.order_number}-KHQR.png`
+  const phone = isPhone()
+
+  // fetch the QR card image ahead of time, so "Save" can open the phone's share sheet instantly
+  useEffect(() => {
+    let gone = false
+    fetch(apiUrl(k.image_url)).then((r) => (r.ok ? r.blob() : null)).then((b) => { if (!gone) blob.current = b }).catch(() => {})
+    return () => { gone = true }
+  }, [k.image_url])
+
+  const save = async () => {
+    setSaving(true)
+    haptic('light')
+    try {
+      const how = await saveImage(apiUrl(k.image_url), fileName, blob.current)
+      if (how === 'downloaded') toast(t('QR saved to your downloads'))
+    } finally { setSaving(false) }
+  }
   const cancel = async () => {
-    if (!confirm(t('Cancel this order and release the tickets?'))) return
+    const ok = await confirmDialog({ title: t('Cancel this order?'), message: t('The tickets go back on sale and this QR stops working. If you already paid, do not cancel: wait for the confirmation.'),
+      confirmText: t('Cancel order'), cancelText: t('Keep order'), danger: true })
+    if (!ok) return
     setCancelling(true)
     try { await api(`/api/orders/${o.order_number}/cancel`, { method: 'POST' }); onChange() } catch (e) { toast(e.message, 'error') } finally { setCancelling(false) }
   }
+  const steps = [
+    [ScanLine, t('Open ABA, ACLEDA, Wing or any Bakong banking app and choose Scan QR.')],
+    [Banknote, t("Pay exactly {amount}. Don't change the amount.", { amount: shown })],
+    [BellRing, t('Keep this page open — it updates by itself once the bank confirms.')],
+  ]
   return (
     <div className="card overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-line bg-raised px-5 py-3.5 text-sm">
-        <span className="font-semibold">{t('Scan to pay with KHQR')}</span>
-        <span className={`flex items-center gap-1.5 font-semibold ${expired ? 'text-bad' : 'text-warn'}`}><Clock className="h-4 w-4" />{expired ? t('QR expired') : <Countdown seconds={o.seconds_left} onDone={() => setExpired(true)} />}</span>
+      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+        <span className="flex items-center gap-2 font-semibold"><QrCode className="h-[18px] w-[18px] text-accent" />{t('Scan to pay with KHQR')}</span>
+        <span className={cls('flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-bold tabular-nums', expired ? 'bg-bad/10 text-bad' : 'bg-warn/10 text-warn')}>
+          <Clock className="h-3.5 w-3.5" />{expired ? t('QR expired') : <Countdown seconds={o.seconds_left} onDone={() => setExpired(true)} />}
+        </span>
       </div>
       <div className="grid gap-6 p-5 sm:grid-cols-[300px_1fr] sm:p-6">
-        <KhqrCard value={k.payload} amount={k.amount} currency={k.currency} name={k.merchant_name || "TicketNest"} dim={expired} />
-        <div className="space-y-4 text-sm">
-          <ol className="space-y-2.5 text-muted">
-            <li><b className="text-ink">1.</b> {t('Open ABA, ACLEDA, Wing or any Bakong banking app and choose Scan QR.')}</li>
-            <li><b className="text-ink">2.</b> {t("Pay exactly {amount}. Don't change the amount.", { amount: k.currency === 'USD' ? usd2(k.amount) : amount })}</li>
-            <li><b className="text-ink">3.</b> {t('Keep this page open — it updates by itself once the bank confirms.')}</li>
+        <KhqrCard value={k.payload} amount={k.amount} currency={k.currency} name={k.merchant_name || 'TicketNest'} dim={expired} />
+        <div className="flex flex-col gap-4">
+          <ol className="space-y-3">
+            {steps.map(([Icon, text], i) => (
+              <li key={i} className="flex items-start gap-3 text-[14px] leading-snug">
+                <span className="holo-bg grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-bold text-white">{i + 1}</span>
+                <span className="pt-1.5 text-muted"><Icon className="mr-1.5 inline h-4 w-4 align-[-3px] text-ink" />{text}</span>
+              </li>
+            ))}
           </ol>
-          <div className="rounded-xl border border-line p-3.5">
-            <p className="flex items-center gap-2 font-semibold"><Smartphone className="h-4 w-4" />{t('Paying on this phone?')}</p>
-            <p className="mt-1 text-muted">{t('Save the QR image, then in your banking app choose Scan → upload from gallery. Or open this page on another device.')}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button className="btn-ghost" onClick={() => saveImage(apiUrl(k.image_url), `TicketNest-${o.order_number}.png`)}><Download className="h-4 w-4" />{t('Save QR image')}</button>
-              <a className="btn-ghost" href={apiUrl(k.image_url)} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" />{t('Open QR')}</a>
-              <button className="btn-ghost" onClick={() => { navigator.clipboard?.writeText(amount); toast(t('Amount copied')) }}><Copy className="h-4 w-4" />{t('Copy amount')}</button>
-            </div>
+
+          <div className="rounded-2xl border border-accent/20 bg-accent/5 p-4">
+            <p className="flex items-center gap-2 text-[14px] font-semibold"><Smartphone className="h-4 w-4 text-accent" />{t('Paying on this phone?')}</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-muted">{t('Save the QR to your Photos, then in your banking app tap Scan and choose the photo from your gallery.')}</p>
+            <button className="btn-holo mt-3 h-12 w-full text-[15px]" disabled={saving || expired} onClick={save}>
+              {saving ? <Spinner className="h-4 w-4" /> : <ImageDown className="h-[18px] w-[18px]" />}{phone ? t('Save QR to Photos') : t('Download QR image')}
+            </button>
+            <button className="btn-ghost mt-2 h-11 w-full justify-between px-4" onClick={() => { navigator.clipboard?.writeText(amount); haptic('light'); toast(t('Amount copied')) }}>
+              <span className="flex items-center gap-2"><Copy className="h-4 w-4 text-muted" />{t('Copy amount')}</span>
+              <span className="font-display font-bold tabular-nums">{shown}</span>
+            </button>
           </div>
-          <p className="flex items-center gap-2 text-muted"><Spinner className="h-4 w-4" />{t('Waiting for payment confirmation…')}</p>
-          <button onClick={cancel} disabled={cancelling} className="inline-flex items-center gap-1 text-[13px] text-muted hover:text-bad"><X className="h-3.5 w-3.5" />{t('Cancel order')}</button>
-          {expired && <p className="rounded-xl bg-bad/5 p-3 text-bad">{t("This QR has expired. If you already paid, don't pay again — wait a few minutes or contact support with your bank receipt. Otherwise, start a new checkout.")}</p>}
+
+          {!expired && (
+            <div className="flex items-center gap-3 rounded-2xl bg-raised px-4 py-3">
+              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-good opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-good" /></span>
+              <span className="text-[13px] text-muted">{t('Waiting for payment confirmation…')}</span>
+            </div>
+          )}
+          {expired && <p className="rounded-2xl bg-bad/5 p-4 text-[13px] leading-relaxed text-bad">{t("This QR has expired. If you already paid, don't pay again — wait a few minutes or contact support with your bank receipt. Otherwise, start a new checkout.")}</p>}
+
+          <button onClick={cancel} disabled={cancelling} className="btn h-11 w-full border border-line bg-transparent text-[14px] text-muted hover:border-bad/40 hover:bg-bad/5 hover:text-bad">
+            {cancelling ? <Spinner className="h-4 w-4" /> : <X className="h-4 w-4" />}{t('Cancel order')}
+          </button>
         </div>
       </div>
     </div>

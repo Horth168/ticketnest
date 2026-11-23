@@ -1,5 +1,6 @@
 // Buyer protection on the order page: "I received my ticket", "Report a problem" and the guarantee note.
 import { AlertTriangle, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { confirmDialog } from './Dialog'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp, useLink } from '../context/App'
@@ -39,7 +40,7 @@ export default function ProtectionPanel({ o, onChange }) {
   if (!['paid', 'preparing', 'awaiting_delivery', 'delivered', 'completed'].includes(o.status) && !issue) return null
 
   const confirm = async () => {
-    if (!window.confirm(t('Confirm you received your ticket and it looks right?'))) return
+    if (!(await confirmDialog({ title: t('Got your ticket?'), message: t('Confirm you received your ticket and it looks right?'), confirmText: t('Yes, I got it'), cancelText: t('Not yet') }))) return
     setBusy(true)
     try { await api(`/api/orders/${o.order_number}/received`, { method: 'POST' }); haptic('success'); toast(t('Thanks! We let the team know.')); onChange() }
     catch (e) { toast(e.message, 'error') } finally { setBusy(false) }
