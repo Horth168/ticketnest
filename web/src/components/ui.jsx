@@ -173,7 +173,7 @@ export function Stat({ label, value, hint }) {
 export function Row({ k, v, strong }) {
   return (
     <div className={cls('flex items-baseline justify-between gap-4 py-1.5 text-sm', strong && 'border-t border-line pt-3 text-base font-semibold')}>
-      <span className={strong ? '' : 'text-muted'}>{k}</span><span className="text-right tabular-nums">{v}</span>
+      <span className={cls('shrink-0', !strong && 'text-muted')}>{k}</span><span className="min-w-0 text-right tabular-nums [overflow-wrap:anywhere]">{v}</span>
     </div>
   )
 }

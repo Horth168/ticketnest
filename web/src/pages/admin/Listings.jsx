@@ -74,10 +74,10 @@ function ProofImage({ listingId, f }) {
     return () => u && URL.revokeObjectURL(u)
   }, [listingId, f])
   return (
-    <button onClick={() => viewFile({ path: `/api/admin/listings/${listingId}/files/${f.id}`, name: f.name })} className="group relative overflow-hidden rounded-xl border border-line bg-raised text-left">
+    <button onClick={() => viewFile({ path: `/api/admin/listings/${listingId}/files/${f.id}`, name: f.name })} className="group relative block w-full min-w-0 overflow-hidden rounded-xl border border-line bg-raised text-left">
       <span className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/55 text-white"><Maximize2 className="h-4 w-4" /></span>
       {url ? <img src={url} alt={f.name} className="h-44 w-full object-contain" /> : <div className="grid h-44 place-items-center text-sm text-muted">PDF · open</div>}
-      <p className="flex items-center gap-1.5 truncate border-t border-line px-3 py-2 text-[12px] text-muted">{f.name}<ExternalLink className="h-3 w-3" /></p>
+      <p className="flex items-center gap-1.5 border-t border-line px-3 py-2 text-[12px] text-muted"><span className="min-w-0 truncate">{f.name}</span><ExternalLink className="h-3 w-3 shrink-0" /></p>
     </button>
   )
 }
@@ -133,7 +133,7 @@ function ListingDetail() {
               <Link key={o.id} to={`/admin/orders/${o.id}`} className="flex items-center gap-3 border-b border-line px-4 py-3 text-sm last:border-b-0 hover:bg-raised">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{o.contact.name} <span className="font-normal text-muted">@{o.contact.telegram}</span></p>
-                  <p className="truncate text-[12px] text-muted">{o.order_number} · {o.item.quantity} ticket{o.item.quantity === 1 ? '' : 's'} · {dateTime(o.created_at)}</p>
+                  <p className="text-[12px] text-muted">{o.order_number} · {o.item.quantity} ticket{o.item.quantity === 1 ? '' : 's'} · {dateTime(o.created_at)}</p>
                 </div>
                 <OrderBadge status={o.status} />
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
