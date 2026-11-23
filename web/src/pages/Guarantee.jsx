@@ -13,12 +13,12 @@ export default function Guarantee() {
   const link = useLink()
   const p = settings?.protection || {}
   const hold = p.payout_hold_hours ?? 48
-  const window_ = p.report_window_hours ?? 48
+  const window_ = p.report_window_hours ?? 6
   usePageMeta({ title: t('TicketNest Guarantee'), description: t('If your ticket never arrives or does not work, you get your money back. Sellers are only paid after the concert.') })
   const points = [
     [FileSearch, t('Every listing is checked'), t("Our team reviews each seller's ticket proof and purchase receipt before the listing goes on sale.")],
     [Lock, t('Sellers are paid after the concert'), t('Your money stays with TicketNest until {h} hours after the concert starts. A seller cannot take the money and disappear.', { h: hold })],
-    [Clock, t('Report a problem until after the show'), t('From your order page you can report a problem until {h} hours after the concert starts. Reporting freezes the payment to the seller.', { h: window_ })],
+    [Clock, t('Report problems at the venue'), t('If your ticket does not work, report it from your order page straight away, with a photo. Reports are open until {h} hours after the concert starts, and freeze the payment to the seller.', { h: window_ })],
     [RotateCcw, t('Money back when it goes wrong'), t('If your ticket never arrives, is invalid, or is not what you paid for, we refund you, or find you an equal or better ticket.')],
     [BadgeCheck, t('Payments confirmed by the bank'), t('Orders are confirmed from the bank payment record, never from a screenshot.')],
   ]
@@ -48,7 +48,7 @@ export default function Guarantee() {
           <li>{t('Tap "Report a problem", choose what happened and add details.')}</li>
           <li>{t('Our team checks it with the seller and contacts you on Telegram, usually within 24 hours.')}</li>
         </ol>
-        <p className="mt-4 text-[13px] text-muted">{t('The guarantee covers tickets bought and paid on TicketNest. It does not cover a concert being cancelled by the organiser (our refund policy applies), or entry refused for reasons not related to the ticket, e.g. age limits or prohibited items.')}</p>
+        <p className="mt-4 text-[13px] text-muted">{t('The guarantee covers tickets bought and paid on TicketNest. It does not cover a concert being cancelled by the organiser (our refund policy applies), entry refused for reasons not related to the ticket (e.g. age limits or prohibited items), or not attending. False reports lead to the account being closed.')}</p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link to={link('/tickets')} className="btn-primary">{t('My tickets')}</Link>
           <Link to={link('/policies/refunds')} className="btn-ghost">{t('Refund policy')}</Link>

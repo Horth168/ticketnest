@@ -1,5 +1,5 @@
 // Buyer protection on the order page: "I received my ticket", "Report a problem" and the guarantee note.
-import { AlertTriangle, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, Camera, CheckCircle2, ShieldCheck, X } from 'lucide-react'
 import { confirmDialog } from './Dialog'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -84,32 +84,63 @@ export default function ProtectionPanel({ o, onChange }) {
   )
 }
 
+const NEEDS_PHOTO = ['invalid', 'wrong']
+
 function ReportModal({ o, onClose, onDone }) {
   const { toast } = useApp()
   const { t } = useT()
-  const [reason, setReason] = useState('not_received')
+  const reasons = REPORT_REASONS.filter(([k]) => !(k === 'not_received' && o.buyer_confirmed_at))
+  const [reason, setReason] = useState(reasons[0][0])
   const [details, setDetails] = useState('')
+  const [photos, setPhotos] = useState([])
   const [busy, setBusy] = useState(false)
+  const needPhoto = NEEDS_PHOTO.includes(reason)
+  const addPhotos = (list) => setPhotos((p) => [...p, ...Array.from(list || [])].slice(0, 3))
   const submit = async () => {
     setBusy(true)
     try {
-      await api(`/api/orders/${o.order_number}/report`, { method: 'POST', body: { reason, details: details.trim() } })
+      const fd = new FormData()
+      fd.append('reason', reason)
+      fd.append('details', details.trim())
+      photos.forEach((f) => fd.append('photos', f))
+      await api(`/api/orders/${o.order_number}/report`, { method: 'POST', form: fd })
       haptic('warning'); toast(t('Report sent. Our team will contact you on Telegram.')); onDone()
     } catch (e) { toast(e.message, 'error') } finally { setBusy(false) }
   }
   return (
     <Modal open onClose={onClose} title={t('Report a problem')}>
+      <p className="mb-3 rounded-xl bg-warn/10 p-3 text-[12.5px] leading-relaxed text-warn">
+        {t('Report problems at the venue, as soon as they happen.')} {o.report_deadline && t('You can report until {date}.', { date: dateTime(o.report_deadline) })}
+      </p>
       <div className="space-y-2">
-        {REPORT_REASONS.map(([k, l]) => (
+        {reasons.map(([k, l]) => (
           <label key={k} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm transition ${reason === k ? 'border-accent bg-accent/5' : 'border-line'}`}>
             <input type="radio" name="reason" className="accent-[rgb(var(--accent))]" checked={reason === k} onChange={() => setReason(k)} />{t(l)}
           </label>
         ))}
       </div>
-      <textarea className="input mt-3 min-h-[110px]" maxLength={2000} value={details} onChange={(e) => setDetails(e.target.value)}
+      <textarea className="input mt-3 min-h-[100px]" maxLength={2000} value={details} onChange={(e) => setDetails(e.target.value)}
         placeholder={t('What happened? Include anything that helps us check, e.g. what the gate staff said.')} />
-      <p className="mt-2 text-[12px] text-muted">{t("Reporting freezes the seller's payout until our team has checked it.")}</p>
-      <button className="btn-primary mt-4 w-full" disabled={busy || details.trim().length < 10} onClick={submit}>{t('Send report')}</button>
+
+      <p className="label mt-3">{needPhoto ? t('Photos from the venue (required)') : t('Photos (optional)')}</p>
+      <div className="grid grid-cols-4 gap-2">
+        {photos.map((f, i) => (
+          <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-line">
+            <img src={URL.createObjectURL(f)} alt="" className="h-full w-full object-cover" />
+            <button type="button" onClick={() => setPhotos(photos.filter((_, j) => j !== i))} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white" aria-label={t('Remove')}><X className="h-3.5 w-3.5" /></button>
+          </div>
+        ))}
+        {photos.length < 3 && (
+          <label className="grid aspect-square cursor-pointer place-items-center rounded-xl border border-dashed border-line text-muted transition hover:border-accent hover:text-accent">
+            <Camera className="h-6 w-6" />
+            <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { addPhotos(e.target.files); e.target.value = '' }} />
+          </label>
+        )}
+      </div>
+      <p className="mt-1.5 text-[12px] text-muted">{needPhoto ? t('A photo of the gate screen, the error on the ticket, or the seat you were given helps us confirm it with the seller.') : t('Up to 3 photos.')}</p>
+
+      <p className="mt-3 text-[12px] text-muted">{t("Reporting freezes the seller's payout until our team has checked it. False reports lead to the account being closed.")}</p>
+      <button className="btn-primary mt-4 w-full" disabled={busy || details.trim().length < 10 || (needPhoto && !photos.length)} onClick={submit}>{t('Send report')}</button>
     </Modal>
   )
 }

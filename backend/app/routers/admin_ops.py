@@ -249,15 +249,36 @@ def mark_sold_offline(listing_id: int, body: dict, db: Session = Depends(get_db)
 
 # ---------------------------------------------------------------- orders
 @router.get("/orders")
-def list_orders(status: str = "", q: str = "", db: Session = Depends(get_db), _: User = Depends(require_staff),
-                page: int = Query(1, ge=1), size: int = Query(50, le=200)):
+def list_orders(status: str = "", q: str = "", seller: int | None = None, buyer: int | None = None,
+                listing: int | None = None, issues: bool = False, db: Session = Depends(get_db),
+                _: User = Depends(require_staff), page: int = Query(1, ge=1), size: int = Query(50, le=200)):
+    """One search for everything: order number, buyer (name / Telegram / email), seller (name / Telegram /
+    email), concert, or a listing number like "#12". ?seller= / ?buyer= / ?listing= show one person's or
+    one listing's orders; ?issues=1 shows only orders with a problem report."""
+    from app.models import OrderItem, TicketListing as TL, User as U
     query = db.query(Order)
     if status:
         query = query.filter(Order.status.in_(status.split(",")))
+    if seller:
+        query = query.filter(Order.id.in_(db.query(OrderItem.order_id).filter(OrderItem.seller_id == seller)))
+    if buyer:
+        query = query.filter(Order.buyer_id == buyer)
+    if listing:
+        query = query.filter(Order.id.in_(db.query(OrderItem.order_id).filter(OrderItem.listing_id == listing)))
+    if issues:
+        query = query.filter(Order.issue_status != "")
     if q:
-        like = f"%{q[:80]}%"
-        query = query.filter(Order.order_number.ilike(like) | Order.contact_name.ilike(like)
-                             | Order.contact_telegram.ilike(like) | Order.contact_email.ilike(like))
+        term = q.strip()[:80]
+        like = f"%{term}%"
+        by_item = (db.query(OrderItem.order_id).outerjoin(TL, TL.id == OrderItem.listing_id)
+                   .outerjoin(U, U.id == OrderItem.seller_id)
+                   .filter(OrderItem.concert_title.ilike(like) | U.full_name.ilike(like) | U.email.ilike(like)
+                           | U.telegram_username.ilike(like) | TL.contact_telegram.ilike(like)))
+        cond = (Order.order_number.ilike(like) | Order.contact_name.ilike(like) | Order.contact_telegram.ilike(like)
+                | Order.contact_email.ilike(like) | Order.id.in_(by_item))
+        if term.lstrip("#").isdigit():   # "#12" = listing 12
+            cond = cond | Order.id.in_(db.query(OrderItem.order_id).filter(OrderItem.listing_id == int(term.lstrip("#"))))
+        query = query.filter(cond)
     total = query.count()
     rows = query.order_by(Order.created_at.desc()).offset((page - 1) * size).limit(size).all()
     return {"items": [order_out(o, admin=True) for o in rows], "total": total}
@@ -274,6 +295,7 @@ def _order(db: Session, order_id: int) -> Order:
 def get_order(order_id: int, db: Session = Depends(get_db), _: User = Depends(require_staff)):
     o = _order(db, order_id)
     out = order_out(o, admin=True)
+    out["buyer_history"] = svc.buyer_history(db, o.buyer_id, exclude_order_id=o.id)
     out["emails"] = [{"kind": e.kind, "status": e.status, "to": e.to, "at": iso(e.created_at)}
                      for e in db.query(EmailLog).filter_by(order_id=o.id).order_by(EmailLog.id).all()]
     return out
@@ -329,6 +351,16 @@ def refund_order(order_id: int, body: RefundIn, db: Session = Depends(get_db), u
     svc.refund(db, o, user, clean_text(body.reason, 300), body.restock)
     db.commit()
     return order_out(o, admin=True)
+
+
+@router.get("/orders/{order_id}/evidence/{index}")
+def order_evidence(order_id: int, index: int, db: Session = Depends(get_db), _: User = Depends(require_staff)):
+    o = _order(db, order_id)
+    keys = o.issue_evidence or []
+    if not 0 <= index < len(keys):
+        raise HTTPException(404, "Photo not found")
+    data = storage.read_private(keys[index])
+    return Response(data, media_type=storage.sniff(data) or "image/jpeg", headers={"Cache-Control": "private, no-store"})
 
 
 class ResolveIn(BaseModel):

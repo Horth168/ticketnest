@@ -47,7 +47,7 @@ DEFAULTS: dict[str, dict] = {
     "protection": {
         "hold_until_after_event": True,  # seller earnings stay pending until after the concert
         "payout_hold_hours": 48,         # ... this many hours after the concert starts
-        "report_window_hours": 48,       # buyers can report a problem until this long after the start
+        "report_window_hours": 6,        # buyers report entry problems at the show: until 6 h after the start
         "price_cap_pct": 0,              # 0 = off; e.g. 150 = a listing may cost at most 150% of face value
     },
 }

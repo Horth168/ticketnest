@@ -1,5 +1,6 @@
 import './index.css'
 import { DialogHost } from './components/Dialog'
+import { FileViewerHost } from './components/FileViewer'
 import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
@@ -39,6 +40,7 @@ createRoot(document.getElementById('root')).render(
       <I18nProvider>
       <AppProvider>
         <DialogHost />
+        <FileViewerHost />
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/admin/*" element={<AdminApp />} />

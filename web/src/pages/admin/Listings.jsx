@@ -1,4 +1,5 @@
-import { Check, ExternalLink, Plus, X } from 'lucide-react'
+import { Check, ChevronRight, ExternalLink, Maximize2, Plus, Search, Ticket, User as UserIcon, X } from 'lucide-react'
+import { viewFile } from '../../components/FileViewer'
 import { promptDialog } from '../../components/Dialog'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom'
@@ -25,17 +26,36 @@ function ListingList() {
         <button className="btn-primary" onClick={() => setAdding(true)}><Plus className="h-4 w-4" />Add tickets manually</button>
       </H>
       <Tabs value={status} onChange={setStatus} options={[['pending', 'Pending approval'], ['available', 'Available'], ['reserved', 'Reserved'], ['sold', 'Sold'], ['rejected', 'Rejected'], ['disabled', 'Disabled'], ['cancelled', 'Cancelled'], ['', 'All']]} />
-      <input className="input mb-4 max-w-sm" placeholder="Filter by concert" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="relative mb-4 max-w-md">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+        <input className="input h-11 pl-10" placeholder="Filter by concert" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
       {!rows ? <Loading /> : !rows.length ? <Empty title="Nothing here">No listings with this status.</Empty> : (
-        <div className="card divide-y divide-line">
+        <div className="grid gap-3 lg:grid-cols-2">
           {rows.map((l) => (
-            <Link key={l.id} to={`/admin/listings/${l.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-4 hover:bg-raised">
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">#{l.id} · {l.concert.title}</p>
-                <p className="text-[13px] text-muted">{l.category} · {l.quantity} ticket(s) · {l.seller?.name || 'TicketNest stock'} · {dateTime(l.listed_at)}</p>
+            <Link key={l.id} to={`/admin/listings/${l.id}`} className="card card-hover flex flex-col gap-3 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-muted">Listing #{l.id}</p>
+                  <p className="mt-0.5 line-clamp-2 font-semibold leading-snug">{l.concert.title}</p>
+                </div>
+                <ListingBadge status={l.status} />
               </div>
-              <span className="text-sm tabular-nums">{usd2(l.price_cents)} <span className="text-muted">→ buyer {usd2(l.buyer_price_cents)}</span></span>
-              <ListingBadge status={l.status} />
+              <div className="flex flex-wrap gap-1.5 text-[12px]">
+                <span className="rounded-full bg-raised px-2.5 py-1 font-semibold">{l.category}</span>
+                <span className="rounded-full bg-raised px-2.5 py-1">{l.quantity} ticket{l.quantity === 1 ? '' : 's'}</span>
+                {l.seat_info && <span className="max-w-full truncate rounded-full bg-raised px-2.5 py-1">{l.seat_info}</span>}
+              </div>
+              <div className="flex items-end justify-between gap-3 border-t border-line pt-3">
+                <div className="min-w-0 text-[12px] text-muted">
+                  <p className="flex items-center gap-1.5 truncate"><UserIcon className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{l.seller?.name || 'TicketNest stock'}</span></p>
+                  <p className="mt-0.5">{dateTime(l.listed_at)}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-display text-[17px] font-bold tabular-nums">{usd2(l.price_cents)}</p>
+                  <p className="text-[11.5px] text-muted">buyer pays {usd2(l.buyer_price_cents)}</p>
+                </div>
+              </div>
             </Link>
           ))}
         </div>
@@ -54,7 +74,8 @@ function ProofImage({ listingId, f }) {
     return () => u && URL.revokeObjectURL(u)
   }, [listingId, f])
   return (
-    <button onClick={() => openFile(`/api/admin/listings/${listingId}/files/${f.id}`, f.name)} className="group overflow-hidden rounded-xl border border-line bg-raised text-left">
+    <button onClick={() => viewFile({ path: `/api/admin/listings/${listingId}/files/${f.id}`, name: f.name })} className="group relative overflow-hidden rounded-xl border border-line bg-raised text-left">
+      <span className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/55 text-white"><Maximize2 className="h-4 w-4" /></span>
       {url ? <img src={url} alt={f.name} className="h-44 w-full object-contain" /> : <div className="grid h-44 place-items-center text-sm text-muted">PDF · open</div>}
       <p className="flex items-center gap-1.5 truncate border-t border-line px-3 py-2 text-[12px] text-muted">{f.name}<ExternalLink className="h-3 w-3" /></p>
     </button>
@@ -103,12 +124,22 @@ function ListingDetail() {
             {l.notes && <p className="mt-3 whitespace-pre-line rounded-xl bg-raised p-3 text-sm">{l.notes}</p>}
             {l.rejection_reason && <p className="mt-3 rounded-xl bg-bad/5 p-3 text-sm text-bad">Rejected: {l.rejection_reason}</p>}
           </div>
-          {l.orders?.length > 0 && (
-            <div className="card divide-y divide-line">
-              <p className="p-4 font-semibold">Orders</p>
-              {l.orders.map((o) => <Link key={o.id} to={`/admin/orders/${o.id}`} className="flex items-center justify-between p-4 text-sm hover:bg-raised"><span>{o.order_number} · {o.contact.name}</span><OrderBadge status={o.status} /></Link>)}
+          <div className="card overflow-hidden">
+            <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3.5">
+              <p className="flex items-center gap-2 font-semibold"><Ticket className="h-4 w-4 text-accent" />Sold to {l.orders?.length ? <span className="text-muted">· {l.orders.length}</span> : null}</p>
+              {l.orders?.length > 0 && <Link to={`/admin/orders?listing=${l.id}`} className="text-[13px] font-semibold text-accent">All orders</Link>}
             </div>
-          )}
+            {!l.orders?.length ? <p className="p-4 text-sm text-muted">Nobody has bought from this listing yet.</p> : l.orders.map((o) => (
+              <Link key={o.id} to={`/admin/orders/${o.id}`} className="flex items-center gap-3 border-b border-line px-4 py-3 text-sm last:border-b-0 hover:bg-raised">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{o.contact.name} <span className="font-normal text-muted">@{o.contact.telegram}</span></p>
+                  <p className="truncate text-[12px] text-muted">{o.order_number} · {o.item.quantity} ticket{o.item.quantity === 1 ? '' : 's'} · {dateTime(o.created_at)}</p>
+                </div>
+                <OrderBadge status={o.status} />
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
+              </Link>
+            ))}
+          </div>
         </div>
         <div className="space-y-4">
           <div className="card space-y-2 p-5">
@@ -163,8 +194,8 @@ export function PayoutQr({ src }) {
   if (url === false) return null
   return (
     <div className="mt-3 rounded-2xl border border-line bg-white p-3 text-center">
-      {url ? <img src={url} alt="Seller payout QR" className="mx-auto max-h-64 rounded-lg" /> : <div className="skeleton mx-auto h-48 w-48" />}
-      <p className="mt-2 text-[12px] text-neutral-500">Seller's payout QR — scan with your bank app</p>
+      {url ? <button onClick={() => viewFile({ path: src, name: 'seller-payout-qr.png' })} className="block w-full"><img src={url} alt="Seller payout QR" className="mx-auto max-h-64 rounded-lg" /></button> : <div className="skeleton mx-auto h-48 w-48" />}
+      <p className="mt-2 text-[12px] text-neutral-500">Seller's payout QR — tap to enlarge or save</p>
     </div>
   )
 }

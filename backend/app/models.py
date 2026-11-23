@@ -309,6 +309,7 @@ class Order(TS, Base):
     issue_opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     issue_resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     issue_resolution: Mapped[str] = mapped_column(String(300), default="", server_default="", nullable=False)
+    issue_evidence: Mapped[list | None] = mapped_column(JSON)   # private storage keys of the buyer's photos
 
     buyer: Mapped[User] = relationship()
     items: Mapped[list[OrderItem]] = relationship(back_populates="order", cascade="all, delete-orphan")

@@ -4,7 +4,7 @@ import io
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,7 @@ from app.security import get_current_user
 from app.serializers import order_out
 from app.services import email as mail, invoice_pdf, orders as svc, payway, storage
 from app.services.settings_store import get_setting
-from app.utils import iso, utcnow
+from app.utils import clean_text, iso, utcnow
 
 from app.services.human import require_human
 
@@ -90,19 +90,26 @@ def cancel(number: str, user: User = Depends(get_current_user), db: Session = De
     return order_out(order)
 
 
-class ReportIn(Clean):
-    reason: Literal["not_received", "invalid", "wrong", "other"]
-    details: str = Field(min_length=10, max_length=2000)
-
-
 @router.post("/{number}/report")
 @limiter.limit("5/hour")
-def report(request: Request, number: str, body: ReportIn, user: User = Depends(get_current_user),
-           db: Session = Depends(get_db)):
-    """Buyer protection: report a problem (freezes the seller's payout until TicketNest checks it)."""
+async def report(request: Request, number: str, reason: Literal["not_received", "invalid", "wrong", "other"] = Form(...),
+                 details: str = Form(..., min_length=10, max_length=2000), photos: list[UploadFile] = File(default=[]),
+                 user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Buyer protection: report a problem (freezes the seller's payout until TicketNest checks it).
+    Up to 3 photos from the venue; required for "entry refused" and "wrong ticket"."""
+    from app.services import notify
     order = _mine(db, user, number)
-    svc.report_problem(db, order, user, body.reason, body.details)
+    if len(photos) > 3:
+        raise HTTPException(422, "Add up to 3 photos")
+    keys = []
+    for f in photos:
+        if not f.filename:
+            continue
+        data, kind = await storage.read_upload(f, allow_pdf=False)
+        keys.append(storage.save_private(data, kind, "reports"))
+    svc.report_problem(db, order, user, reason, clean_text(details, 2000), keys)
     db.commit()
+    notify.send_issue_evidence(order.order_number, keys)
     return _with_protection(db, order)
 
 

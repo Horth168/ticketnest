@@ -3,7 +3,7 @@ and error alerts."""
 import gzip
 import json
 
-from conftest import TG_SENT, checkout, create_listing, make_user
+from conftest import TG_SENT, checkout, create_listing, make_user, png_bytes
 
 from app.database import SessionLocal
 from app.models import Concert, PlatformSetting, Review, TicketListing
@@ -239,13 +239,18 @@ def test_report_freezes_payout_until_admin_resolves(client, setup):
     client.post(f"/api/admin/orders/{o['id']}/deliver", headers=setup["admin"], data={"method": "telegram"})
     mine = client.get(f"/api/orders/{n}", headers=setup["buyer"]).json()
     assert mine["can_report"] and mine["report_deadline"]
-    assert client.post(f"/api/orders/{n}/report", headers=setup["buyer"], json={"reason": "invalid", "details": "short"}).status_code == 422
+    assert client.post(f"/api/orders/{n}/report", headers=setup["buyer"], data={"reason": "invalid", "details": "short"}).status_code == 422
+    # "entry refused" needs a photo from the venue
     r = client.post(f"/api/orders/{n}/report", headers=setup["buyer"],
-                    json={"reason": "invalid", "details": "The QR code was rejected at the gate."})
+                    data={"reason": "invalid", "details": "The QR code was rejected at the gate."})
+    assert r.status_code == 422 and "photo" in r.json()["detail"]
+    r = client.post(f"/api/orders/{n}/report", headers=setup["buyer"],
+                    data={"reason": "invalid", "details": "The QR code was rejected at the gate."},
+                    files=[("photos", ("gate.png", png_bytes(), "image/png"))])
     assert r.status_code == 200 and r.json()["issue"]["status"] == "open" and not r.json()["can_report"]
     assert any(m["kind"] == "order_issue" for m in TG_SENT)
     assert client.post(f"/api/orders/{n}/report", headers=setup["buyer2"],
-                       json={"reason": "other", "details": "Not my order at all here"}).status_code in (403, 404)
+                       data={"reason": "other", "details": "Not my order at all here"}).status_code in (403, 404)
     with SessionLocal() as s:   # hold is over, but the report freezes the payout
         row = s.query(Order).filter_by(order_number=n).one()
         row.payout_release_at = utcnow() - timedelta(minutes=1)
@@ -261,7 +266,7 @@ def test_report_freezes_payout_until_admin_resolves(client, setup):
 def test_refund_closes_report_and_reverses_pending(client, setup):
     o = _paid_order(client, setup)
     client.post(f"/api/orders/{o['order_number']}/report", headers=setup["buyer"],
-                json={"reason": "not_received", "details": "Nobody contacted me on Telegram yet."})
+                data={"reason": "not_received", "details": "Nobody contacted me on Telegram yet."})
     r = client.post(f"/api/admin/orders/{o['id']}/refund", headers=setup["admin"], json={"reason": "Ticket never sent", "restock": False})
     assert r.status_code == 200 and r.json()["status"] == "refunded" and r.json()["issue"]["status"] == "resolved"
     assert _wallet(client, setup) == (0, 0)
@@ -290,7 +295,7 @@ def test_report_window_closes_after_event(client, setup):
         it.concert_starts_at = utcnow() - timedelta(hours=49)
         s.commit()
     r = client.post(f"/api/orders/{o['order_number']}/report", headers=setup["buyer"],
-                    json={"reason": "other", "details": "Something went wrong at the show."})
+                    data={"reason": "other", "details": "Something went wrong at the show."})
     assert r.status_code == 400 and "passed" in r.json()["detail"]
 
 
@@ -325,7 +330,7 @@ def test_report_alert_reaches_admin_group_with_contact_buttons(client, setup):
     o = _paid_order(client, setup)
     TG_SENT.clear()
     client.post(f"/api/orders/{o['order_number']}/report", headers=setup["buyer"],
-                json={"reason": "not_received", "details": "Nobody sent me the ticket yet, please help."})
+                data={"reason": "not_received", "details": "Nobody sent me the ticket yet, please help."})
     alert = next(m for m in TG_SENT if m["kind"] == "order_issue")
     assert alert["chat"] == "-1009990001"                     # the admin group, not a customer chat
     assert "Ticket not received" in alert["text"] and "Nobody sent me the ticket" in alert["text"]
@@ -373,3 +378,31 @@ def test_telegram_follows_group_upgraded_to_supergroup(monkeypatch):
     with SessionLocal() as s:
         assert s.get(PlatformSetting, tg.MOVED_KEY).value == {"-1009990001": "-1005550001"}
     monkeypatch.setattr(tg, "_moved", None)
+
+
+def test_false_claim_protections_and_tracing(client, setup):
+    from datetime import timedelta
+    from app.models import OrderItem
+    from app.utils import utcnow
+    o = _paid_order(client, setup)
+    n = o["order_number"]
+    client.post(f"/api/orders/{n}/received", headers=setup["buyer"])
+    # confirmed receipt -> can't claim it never arrived
+    r = client.post(f"/api/orders/{n}/report", headers=setup["buyer"], data={"reason": "not_received", "details": "I never got anything at all."})
+    assert r.status_code == 400 and "confirmed" in r.json()["detail"]
+    # reports must be made at the show: 7 h after the start is too late (window is 6 h)
+    with SessionLocal() as s:
+        it = s.query(OrderItem).filter_by(order_id=o["id"]).one()
+        it.concert_starts_at = utcnow() - timedelta(hours=7)
+        s.commit()
+    r = client.post(f"/api/orders/{n}/report", headers=setup["buyer"], data={"reason": "other", "details": "I did not attend the concert."})
+    assert r.status_code == 400 and "during the show" in r.json()["detail"]
+    # tracing: the admin order shows the seller; search by seller name, Telegram, listing number or concert finds it
+    d = client.get(f"/api/admin/orders/{o['id']}", headers=setup["admin"]).json()
+    assert d["seller"]["name"] == "Sok Seller" and d["seller"]["telegram"] == "sok_seller"
+    assert d["buyer_history"]["reports"] == 0 and d["buyer_history"]["refunds"] == 0
+    for q in ("Sok Seller", "sok_seller", f"#{d['listing_id']}", "World Tour"):
+        items = client.get(f"/api/admin/orders?q={q}", headers=setup["admin"]).json()["items"]
+        assert any(x["id"] == o["id"] for x in items), q
+    assert client.get(f"/api/admin/orders?seller={d['seller']['id']}", headers=setup["admin"]).json()["total"] == 1
+    assert client.get(f"/api/admin/orders?listing={d['listing_id']}", headers=setup["admin"]).json()["total"] == 1

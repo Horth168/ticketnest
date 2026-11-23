@@ -30,7 +30,7 @@ from app.services.pricing import quote_for
 from app.services.settings_store import get_setting
 from datetime import timedelta
 
-from app.utils import as_aware, usd_to_khr, utcnow
+from app.utils import as_aware, iso, usd_to_khr, utcnow
 
 log = logging.getLogger("ticketnest.orders")
 S = OrderStatus
@@ -411,18 +411,34 @@ def release_due(db: Session) -> int:
     return len(rows)
 
 
-def report_problem(db: Session, order: Order, user: User, reason: str, details: str) -> None:
+EVIDENCE_REQUIRED = ("invalid", "wrong")   # entry refused / wrong ticket: a photo from the venue is required
+
+
+def report_problem(db: Session, order: Order, user: User, reason: str, details: str,
+                   evidence: list[str] | None = None) -> None:
+    """Buyer protection, with rules that stop false claims after the show:
+    - problems must be reported at the concert (within the report window after the start), not days later;
+    - "entry refused" / "wrong ticket" need a photo taken at the venue;
+    - a buyer who confirmed they received the ticket can't later claim it never arrived."""
     if order.status not in OPEN_FOR_REPORT:
         raise HTTPException(400, "This order can't be reported")
     if order.issue_status == "open":
         raise HTTPException(409, "You already reported a problem. Our team is looking into it.")
     deadline = report_deadline(db, order)
     if deadline and utcnow() > deadline:
-        raise HTTPException(400, "The time to report a problem for this concert has passed. Please contact support.")
+        raise HTTPException(400, "The time to report a problem for this concert has passed. Problems with entry must be "
+                                 "reported at the venue, during the show. Please contact support.")
+    if reason == "not_received" and order.buyer_confirmed_at:
+        raise HTTPException(400, "You confirmed you received this ticket. If it didn't work, choose "
+                                 "\"Ticket didn't work / entry refused\" and add a photo.")
+    if reason in EVIDENCE_REQUIRED and not evidence:
+        raise HTTPException(422, "Please add at least one photo from the venue (e.g. the gate screen or the ticket "
+                                 "error), so we can check it with the seller.")
     order.issue_status, order.issue_reason = "open", reason
     order.issue_details, order.issue_opened_at = details[:2000], utcnow()
+    order.issue_evidence = list(evidence or [])[:3]
     order.issue_resolved_at, order.issue_resolution = None, ""
-    event(order, "issue_opened", REPORT_REASONS.get(reason, reason), user)
+    event(order, "issue_opened", REPORT_REASONS.get(reason, reason) + (f" · {len(order.issue_evidence)} photo(s)" if order.issue_evidence else ""), user)
     audit.log(db, "order.issue_open", "order", order.id, actor=user, data={"reason": reason})
     notify.order_issue(db, order)
 
@@ -439,6 +455,19 @@ def resolve_problem(db: Session, order: Order, admin: User, note: str) -> None:
     notify.customer_order_update(db, order, "issue_resolved")
     if order.payout_release_at and as_aware(order.payout_release_at) <= utcnow() and order.status in (S.delivered, S.completed):
         release_payout(db, order, admin)
+
+
+def buyer_history(db: Session, buyer_id: int, exclude_order_id: int | None = None) -> dict:
+    """How this buyer behaved before: helps spot people who report problems to get refunds."""
+    from sqlalchemy import func
+    q = db.query(Order).filter(Order.buyer_id == buyer_id)
+    if exclude_order_id:
+        q = q.filter(Order.id != exclude_order_id)
+    paid = q.filter(Order.status.in_([S.paid, S.preparing, S.awaiting_delivery, S.delivered, S.completed, S.refunded])).count()
+    reports = q.filter(Order.issue_status != "").count()
+    refunds = q.filter(Order.status == S.refunded).count()
+    first = db.query(func.min(Order.created_at)).filter(Order.buyer_id == buyer_id).scalar()
+    return {"orders": paid, "reports": reports, "refunds": refunds, "first_order_at": iso(first) if first else None}
 
 
 def buyer_confirm(db: Session, order: Order, user: User) -> None:

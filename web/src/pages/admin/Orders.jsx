@@ -1,11 +1,12 @@
-import { AlertTriangle, FileText, Lock, MessageCircle, Send, Unlock } from 'lucide-react'
+import { AlertTriangle, ChevronRight, FileText, ImageIcon, Lock, MessageCircle, Search, Send, Store, Unlock, User as UserIcon, X } from 'lucide-react'
+import { fetchBlob, viewFile } from '../../components/FileViewer'
 import { confirmDialog } from '../../components/Dialog'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Badge, Empty, ErrorNote, Field, Loading, Modal, OrderBadge, Row } from '../../components/ui'
 import { useApp } from '../../context/App'
 import { api, openFile } from '../../lib/api'
-import { dateLong, dateTime, usd2 } from '../../lib/format'
+import { cls, dateLong, dateTime, usd2 } from '../../lib/format'
 import { H, Tabs } from './AdminApp'
 
 const REASONS = { not_received: 'Ticket not received', invalid: "Ticket didn't work / entry refused", wrong: 'Wrong seat, category or quantity', other: 'Other problem' }
@@ -17,14 +18,30 @@ export default function Orders() {
 function OrderList() {
   const [sp, setSp] = useSearchParams()
   const status = sp.get('status') ?? ''
+  const issues = sp.get('issues') === '1'
+  const scope = ['seller', 'buyer', 'listing'].find((k) => sp.get(k))
   const [q, setQ] = useState('')
   const [d, setD] = useState(null)
-  useEffect(() => { setD(null); api(`/api/admin/orders?status=${status}&q=${encodeURIComponent(q)}`).then(setD) }, [status, q])
+  useEffect(() => {
+    setD(null)
+    const extra = scope ? `&${scope}=${sp.get(scope)}` : ''
+    api(`/api/admin/orders?status=${status}&q=${encodeURIComponent(q)}${issues ? '&issues=1' : ''}${extra}`).then(setD)
+  }, [status, q, issues, scope, sp])
+  const tab = issues ? 'issues' : status
+  const setTab = (v) => setSp(v === 'issues' ? { issues: '1' } : v ? { status: v } : {})
   return (
     <div>
       <H title="Orders" />
-      <Tabs value={status} onChange={(v) => setSp(v ? { status: v } : {})} options={[['', 'All'], ['paid,preparing,awaiting_delivery', 'To deliver'], ['awaiting_payment', 'Awaiting payment'], ['delivered,completed', 'Delivered'], ['cancelled', 'Cancelled'], ['refunded', 'Refunded']]} />
-      <input className="input mb-4 max-w-sm" placeholder="Order number, name, Telegram, email" value={q} onChange={(e) => setQ(e.target.value)} />
+      <Tabs value={tab} onChange={setTab} options={[['', 'All'], ['paid,preparing,awaiting_delivery', 'To deliver'], ['awaiting_payment', 'Awaiting payment'], ['delivered,completed', 'Delivered'], ['issues', 'Reports'], ['cancelled', 'Cancelled'], ['refunded', 'Refunded']]} />
+      {scope && (
+        <button onClick={() => setSp({})} className="chip mb-3 border-accent/40 bg-accent/10 text-accent">
+          {scope === 'listing' ? `Listing #${sp.get(scope)}` : scope === 'seller' ? `Seller #${sp.get(scope)}` : `Buyer #${sp.get(scope)}`} — only these orders<X className="h-3.5 w-3.5" />
+        </button>
+      )}
+      <div className="relative mb-4 max-w-lg">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+        <input className="input h-11 pl-10" placeholder="Order, buyer, seller, concert or #listing" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
       {!d ? <Loading /> : !d.items.length ? <Empty title="No orders" /> : (
         <>
         <div className="space-y-2 md:hidden">
@@ -34,8 +51,12 @@ function OrderList() {
                 <div className="min-w-0"><p className="font-semibold">{o.order_number}</p><p className="truncate text-[13px] text-muted">{o.item.concert_title}</p></div>
                 <OrderBadge status={o.status} />
               </div>
-              <div className="mt-3 flex items-center justify-between text-[13px]">
-                <span className="text-muted">{o.item.category_name} × {o.item.quantity} · {o.contact.name}</span>
+              <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-raised p-2.5 text-[12px]">
+                <div className="min-w-0"><p className="text-muted">Seller</p><p className="truncate font-semibold">{o.seller?.name || 'TicketNest stock'}</p></div>
+                <div className="min-w-0"><p className="text-muted">Buyer</p><p className="truncate font-semibold">{o.contact.name}</p></div>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[13px]">
+                <span className="text-muted">{o.item.category_name} × {o.item.quantity} · listing #{o.listing_id}{o.issue?.status === 'open' && <span className="ml-1.5 font-semibold text-warn">· reported</span>}</span>
                 <b className="tabular-nums">{usd2(o.total_cents)}</b>
               </div>
               <p className="mt-1 text-[12px] text-muted">{dateTime(o.created_at)} · {o.channel}</p>
@@ -44,13 +65,14 @@ function OrderList() {
         </div>
         <div className="card hidden overflow-x-auto md:block">
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="text-left text-[12px] text-muted"><tr><th className="px-4 py-3">Order</th><th>Concert</th><th>Buyer</th><th>Status</th><th className="px-4 text-right">Total</th></tr></thead>
+            <thead className="text-left text-[12px] text-muted"><tr><th className="px-4 py-3">Order</th><th>Concert</th><th>Seller</th><th>Buyer</th><th>Status</th><th className="px-4 text-right">Total</th></tr></thead>
             <tbody className="divide-y divide-line">
               {d.items.map((o) => (
                 <tr key={o.id} className="transition hover:bg-raised">
                   <td className="px-4 py-3"><Link className="font-semibold hover:text-accent" to={`/admin/orders/${o.id}`}>{o.order_number}</Link><p className="text-[12px] text-muted">{dateTime(o.created_at)} · {o.channel}</p></td>
                   <td className="py-3">{o.item.concert_title}<p className="text-[12px] text-muted">{o.item.category_name} × {o.item.quantity}</p></td>
-                  <td className="py-3">{o.contact.name}<p className="text-[12px] text-muted">@{o.contact.telegram}</p></td>
+                  <td className="py-3">{o.seller?.name || 'TicketNest stock'}<p className="text-[12px] text-muted">{o.seller?.telegram ? `@${o.seller.telegram} · ` : ''}#{o.listing_id}</p></td>
+                  <td className="py-3">{o.contact.name}<p className="text-[12px] text-muted">@{o.contact.telegram}{o.issue?.status === 'open' && <span className="ml-1 font-semibold text-warn">· reported</span>}</p></td>
                   <td className="py-3"><OrderBadge status={o.status} /></td>
                   <td className="px-4 py-3 text-right font-semibold tabular-nums">{usd2(o.total_cents)}</td>
                 </tr>
@@ -107,6 +129,7 @@ function OrderDetail() {
               <p className="flex items-center gap-2 font-semibold text-warn"><AlertTriangle className="h-5 w-5" />Buyer reported a problem</p>
               <p className="mt-2 text-sm"><b>{REASONS[o.issue.reason] || o.issue.reason}</b> · <span className="text-muted">{dateTime(o.issue.opened_at)}</span></p>
               <p className="mt-1 whitespace-pre-line text-sm">“{o.issue.details}”</p>
+              <EvidenceGrid o={o} />
               <p className="mt-3 text-[13px] text-muted">The seller's payout is frozen. Check with the buyer and seller, then either dismiss the report (the seller is paid on schedule) or record a refund (the seller's earnings are taken back).</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button className="btn-primary" onClick={() => setModal('resolve')}>Dismiss report</button>
@@ -156,6 +179,23 @@ function OrderDetail() {
             <Row k="Name" v={o.contact.name} /><Row k="Telegram" v={`@${o.contact.telegram}`} />
             <Row k="Email" v={o.contact.email || '—'} /><Row k="Phone" v={o.contact.phone || '—'} />
             <Row k="Account" v={o.buyer.email || (o.buyer.telegram_username ? `@${o.buyer.telegram_username}` : `#${o.buyer.id}`)} />
+            {o.buyer_history && (
+              <p className={cls('mt-3 rounded-xl px-3 py-2 text-[12px]', o.buyer_history.reports || o.buyer_history.refunds ? 'bg-warn/10 text-warn' : 'bg-raised text-muted')}>
+                History: {o.buyer_history.orders} other order(s) · {o.buyer_history.reports} earlier report(s) · {o.buyer_history.refunds} refund(s)
+              </p>
+            )}
+            <Link to={`/admin/orders?buyer=${o.buyer.id}`} className="mt-3 flex items-center justify-between text-[13px] font-semibold text-accent">All orders by this buyer<ChevronRight className="h-4 w-4" /></Link>
+          </div>
+          <div className="card p-5 text-sm">
+            <p className="mb-2 flex items-center gap-2 font-semibold"><Store className="h-4 w-4 text-accent" />Seller</p>
+            {o.seller ? <>
+              <Row k="Name" v={o.seller.name} />
+              <Row k="Telegram" v={o.seller.telegram ? <a className="text-accent" href={`https://t.me/${o.seller.telegram}`} target="_blank" rel="noreferrer">@{o.seller.telegram}</a> : '—'} />
+              <Row k="Email" v={o.seller.email || '—'} />
+              <Row k="Listing" v={<Link className="text-accent" to={`/admin/listings/${o.seller.listing_id}`}>#{o.seller.listing_id}</Link>} />
+              {o.seller.seat_info && <Row k="Seat" v={o.seller.seat_info} />}
+              <Link to={`/admin/orders?seller=${o.seller.id}`} className="mt-3 flex items-center justify-between text-[13px] font-semibold text-accent">All sales by this seller<ChevronRight className="h-4 w-4" /></Link>
+            </> : <p className="text-muted">TicketNest's own stock · <Link className="text-accent" to={`/admin/listings/${o.listing_id}`}>listing #{o.listing_id}</Link></p>}
           </div>
           {o.invoice_number && (
             <div className="card space-y-2 p-5">
@@ -220,7 +260,8 @@ function DeliverModal({ open, onClose, onSubmit }) {
       <div className="space-y-3">
         <Field label="Delivery method"><select className="input" value={method} onChange={(e) => setMethod(e.target.value)}><option value="telegram">Telegram</option><option value="app_transfer">Ticketing app transfer</option><option value="email">Email</option><option value="in_person">In person</option></select></Field>
         <Field label="Reference / notes"><textarea className="input min-h-[80px]" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. Sent PDF e-ticket to @buyer at 14:20" /></Field>
-        <Field label="Attach confirmation or ticket file (optional)" hint="The buyer can download it from their order"><input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files[0])} className="text-sm" /></Field>
+        <p className="rounded-xl bg-accent/5 p-3 text-[12px] leading-relaxed text-muted"><b className="text-ink">Protect yourself and the seller:</b> attach a screenshot of the transfer (it shows the buyer's account and the time) or the ticket file. If the buyer later claims they never got it, this is your proof.</p>
+        <Field label="Attach transfer screenshot or ticket file" hint="Strongly recommended. The buyer can download it from their order"><input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files[0])} className="text-sm" /></Field>
         <button className="btn-accent w-full" onClick={() => { const fd = new FormData(); fd.append('method', method); fd.append('reference', ref); if (file) fd.append('file', file); onSubmit(fd) }}>Mark delivered</button>
       </div>
     </Modal>
@@ -242,5 +283,27 @@ function RefundModal({ open, onClose, onSubmit }) {
       <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} />Put the tickets back on sale</label>
       <button className="btn-danger mt-4 w-full" disabled={reason.trim().length < 3} onClick={() => onSubmit({ reason, restock })}>Record refund</button>
     </Modal>
+  )
+}
+
+function EvidenceGrid({ o }) {
+  const n = o.issue_evidence_count || 0
+  const [urls, setUrls] = useState([])
+  useEffect(() => {
+    let made = []
+    Promise.all(Array.from({ length: n }, (_, i) => fetchBlob(`/api/admin/orders/${o.id}/evidence/${i}`).then((b) => URL.createObjectURL(b)).catch(() => null)))
+      .then((u) => { made = u; setUrls(u) })
+    return () => made.forEach((u) => u && URL.revokeObjectURL(u))
+  }, [o.id, n])
+  if (!n) return <p className="mt-2 flex items-center gap-1.5 text-[12px] text-muted"><ImageIcon className="h-3.5 w-3.5" />No photos attached</p>
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-2">
+      {Array.from({ length: n }, (_, i) => (
+        <button key={i} onClick={() => viewFile({ path: `/api/admin/orders/${o.id}/evidence/${i}`, name: `${o.order_number}-report-${i + 1}.jpg` })}
+          className="aspect-square overflow-hidden rounded-xl border border-line bg-raised">
+          {urls[i] ? <img src={urls[i]} alt={`Report photo ${i + 1}`} className="h-full w-full object-cover" /> : <span className="skeleton block h-full w-full" />}
+        </button>
+      ))}
+    </div>
   )
 }

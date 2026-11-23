@@ -125,6 +125,11 @@ def order_out(order: Order, *, admin: bool = False, with_qr: bool = False) -> di
                  commission_cents=order.commission_cents, seller_payout_cents=order.seller_payout_cents,
                  commission_bps=order.commission_bps, admin_note=order.admin_note,
                  seller_id=it.seller_id, listing_id=it.listing_id,
+                 seller=({"id": it.listing.seller.id, "name": it.listing.seller.full_name,
+                          "email": it.listing.seller.email, "telegram": it.listing.contact_telegram,
+                          "listing_id": it.listing_id, "seat_info": it.listing.seat_info}
+                         if it.listing and it.listing.seller else None),
+                 issue_evidence_count=len(order.issue_evidence or []),
                  platform_revenue_cents=order.markup_cents + order.commission_cents)
     return d
 

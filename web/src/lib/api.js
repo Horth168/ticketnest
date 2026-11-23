@@ -59,14 +59,19 @@ export async function api(path, { method = 'GET', body, form, raw, retry = true,
   return data
 }
 
-// Open a protected file (invoice, proof) in a new tab or download it.
+// Open a protected file (invoice, proof, receipt, QR) in the in-app viewer, which can also save it.
+// (A new browser tab opened after a download is blocked on iPhone, so files used to show nothing.)
+// download=true on a computer saves straight away (CSV exports, backups).
 export async function openFile(path, filename, download = false) {
-  const res = await api(path, { raw: true })
-  const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  if (download) {
+  const phone = window.matchMedia?.('(pointer: coarse)').matches
+  if (download && !phone) {
+    const res = await api(path, { raw: true })
+    const url = URL.createObjectURL(await res.blob())
     const a = Object.assign(document.createElement('a'), { href: url, download: filename })
     document.body.appendChild(a); a.click(); a.remove()
-  } else window.open(url, '_blank', 'noopener')
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    return
+  }
+  const { viewFile } = await import('../components/FileViewer')
+  viewFile({ path, name: filename })
 }

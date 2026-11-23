@@ -214,14 +214,22 @@ def concert_alerts(db: Session, listing: TicketListing) -> int:
 
 # ---------------------------------------------------------------- buyer protection
 def order_issue(db: Session, order: Order) -> None:
-    from app.services.orders import REPORT_REASONS
+    from app.services.orders import REPORT_REASONS, buyer_history
     it = order.items[0]
+    h = buyer_history(db, order.buyer_id, exclude_order_id=order.id)
+    flag = " ⚠️" if h["reports"] or h["refunds"] else ""
+    seller = it.listing.seller.full_name if it.listing and it.listing.seller else "TicketNest stock"
     tg.queue_admin(db, f"🚩 <b>{_site(db)} — BUYER REPORTED A PROBLEM</b>\nOrder: <b>{e(order.order_number)}</b>\n"
                        f"{e(it.concert_title)} · {e(it.category_name)} × {it.quantity}\n"
                        f"Reason: <b>{e(REPORT_REASONS.get(order.issue_reason, order.issue_reason))}</b>\n"
                        f"“{e(order.issue_details[:600])}”\nBuyer: {e(order.contact_name)} · "
                        f"{e('@' + order.contact_telegram if order.contact_telegram else '-')}\n\n"
-                       f"Delivered: {fmt_local(order.delivered_at) if order.delivered_at else 'not yet'}\n"
+                       f"Seller: {e(seller)} · listing #{it.listing_id}\n"
+                       f"Delivered: {fmt_local(order.delivered_at) if order.delivered_at else 'not yet'}"
+                       f"{' · buyer confirmed receipt ' + fmt_local(order.buyer_confirmed_at) if order.buyer_confirmed_at else ''}\n"
+                       f"Buyer history: {h['orders']} other order(s), {h['reports']} earlier report(s), "
+                       f"{h['refunds']} refund(s){flag}\n"
+                       f"Photos: {len(order.issue_evidence or [])}\n"
                        f"Concert: {fmt_local(it.concert_starts_at)}\n\n"
                        "⚠️ The seller's payout is frozen. Contact the buyer, check with the seller, then "
                        "dismiss the report or refund the buyer in the admin dashboard."
@@ -242,3 +250,23 @@ def seller_payout_released(db: Session, order: Order) -> None:
         to_user(db, db.get(User, seller_id), f"💰 Your earnings of <b>{fmt_usd2(amount)}</b> for {e(order.order_number)} "
                                               "are now available. You can request a withdrawal from your wallet.",
                 kind="payout_released")
+
+
+def send_issue_evidence(order_number: str, keys: list[str]) -> None:
+    """Background: post the buyer's report photos into the admin group (after the report is saved)."""
+    import threading
+
+    from app.services import storage
+
+    def run():
+        for target in tg.admin_targets():
+            for i, k in enumerate(keys, 1):
+                try:
+                    data = storage.read_private(k)
+                    kind = storage.sniff(data) or "image/jpeg"
+                    tg.send_file(target, data, f"{order_number}-report-{i}" + {"image/png": ".png", "image/webp": ".webp"}.get(kind, ".jpg"),
+                                 kind, f"📷 Report photo {i}/{len(keys)} · {order_number}")
+                except Exception:  # noqa: BLE001
+                    pass
+    if keys and tg.enabled() and tg.SYNC_FOR_TESTS is None:
+        threading.Thread(target=run, daemon=True).start()

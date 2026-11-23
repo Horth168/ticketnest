@@ -142,7 +142,7 @@ export const KM = {
 
   // buyer protection
   'Buyer protection': 'ការការពារអ្នកទិញ', 'Buyer reported a problem': 'អ្នកទិញបានរាយការណ៍បញ្ហា', 'Dismiss report': 'បដិសេធរបាយការណ៍',
-  'Problem report resolved': 'បានដោះស្រាយរបាយការណ៍បញ្ហា', 'Seller payout': 'ការទូទាត់ឱ្យអ្នកលក់', 'Release payout now': 'ទូទាត់ឱ្យអ្នកលក់ឥឡូវ',
+  'Problem report resolved': 'បានដោះស្រាយរបាយការណ៍បញ្ហា', 'Release payout now': 'ទូទាត់ឱ្យអ្នកលក់ឥឡូវ',
   'Ticket not received': 'មិនបានទទួលសំបុត្រ', "Ticket didn't work / entry refused": 'សំបុត្រប្រើមិនបាន / មិនឱ្យចូល',
   'Wrong seat, category or quantity': 'កៅអី ប្រភេទ ឬចំនួនខុស', 'Other problem': 'បញ្ហាផ្សេងទៀត',
   "The seller's payout is frozen. Check with the buyer and seller, then either dismiss the report (the seller is paid on schedule) or record a refund (the seller's earnings are taken back).": 'ការទូទាត់ឱ្យអ្នកលក់ត្រូវបានបង្កក។ ពិនិត្យជាមួយអ្នកទិញ និងអ្នកលក់ រួចបដិសេធរបាយការណ៍ (អ្នកលក់ទទួលប្រាក់តាមកាលវិភាគ) ឬកត់ត្រាការសងប្រាក់ (ដកប្រាក់ចំណូលអ្នកលក់វិញ)។',
@@ -157,6 +157,11 @@ export const KM = {
   'This releases the earnings before the usual hold ends. Only do this if you are sure the ticket is genuine.': 'វាផ្តល់ប្រាក់ចំណូលមុនពេលកំណត់ធម្មតា។ ធ្វើវាតែពេលអ្នកប្រាកដថាសំបុត្រពិត។',
   'Mark tickets sold outside TicketNest': 'កត់ថាសំបុត្របានលក់ក្រៅ TicketNest', 'Mark sold': 'កត់ថាបានលក់',
   'Use this when tickets from this listing were sold elsewhere, so they are no longer offered here.': 'ប្រើវា ពេលសំបុត្រពីការដាក់លក់នេះត្រូវបានលក់នៅកន្លែងផ្សេង ដើម្បីកុំឱ្យបង្ហាញនៅទីនេះទៀត។',
+  // seller / buyer tracing
+  'All sales by this seller': 'ការលក់ទាំងអស់របស់អ្នកលក់នេះ',
+  'All orders by this buyer': 'ការបញ្ជាទិញទាំងអស់របស់អ្នកទិញនេះ', 'All orders': 'ការបញ្ជាទិញទាំងអស់', 'Sold to': 'បានលក់ឱ្យ',
+  'Nobody has bought from this listing yet.': 'មិនទាន់មាននរណាទិញពីការដាក់លក់នេះទេ។', 'Order, buyer, seller, concert or #listing': 'ការបញ្ជាទិញ អ្នកទិញ អ្នកលក់ ការប្រគុំតន្ត្រី ឬ #ការដាក់លក់',
+  'No photos attached': 'គ្មានរូបថតភ្ជាប់', 'Attach transfer screenshot or ticket file': 'ភ្ជាប់រូបថតអេក្រង់ការផ្ទេរ ឬឯកសារសំបុត្រ',
   // audit
   'Every important action, with who did it.': 'រាល់សកម្មភាពសំខាន់ៗ និងអ្នកដែលបានធ្វើ។', 'Filter, e.g. payment, listing, withdrawal': 'ច្រោះ ឧ. payment, listing, withdrawal',
 }
