@@ -64,7 +64,7 @@ function DialogView({ item, done }) {
   return (
     <div className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center sm:p-6" role="alertdialog" aria-modal="true" aria-label={item.title}>
       <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" style={{ animation: 'fade-in .18s ease' }} onClick={cancel} />
-      <div className="relative w-full max-w-[420px] rounded-t-[28px] border border-line bg-surface px-5 pb-[calc(18px+var(--safe-bottom))] pt-3 shadow-lift sm:rounded-[24px] sm:pb-5 sm:pt-5"
+      <div className="relative max-h-[calc(100dvh-var(--safe-top)-12px)] w-full max-w-[420px] overflow-y-auto rounded-t-[28px] border border-line bg-surface px-5 pb-[calc(18px+var(--safe-bottom))] pt-3 shadow-lift sm:rounded-[24px] sm:pb-5 sm:pt-5"
         style={{ animation: 'sheet-up .28s cubic-bezier(.2,.8,.2,1)' }}>
         <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-line sm:hidden" />
         <div className="flex items-start gap-3.5">

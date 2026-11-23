@@ -104,14 +104,18 @@ export function Modal({ open, onClose, title, children, wide = false }) {
   if (!open) return null
   // Rendered into <body> so it is always centred on the screen, never inside an animated parent.
   return createPortal(
-    <div className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-[2px] sm:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-[90] flex items-end justify-center pt-[calc(var(--safe-top)+12px)] sm:items-center sm:p-6" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" style={{ animation: 'fade-in .2s ease' }} />
       <div role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} onClick={(e) => e.stopPropagation()}
-        className={cls('pop my-auto max-h-[calc(100dvh-2rem)] w-full overflow-auto rounded-3xl bg-surface p-5 shadow-lift sm:p-6', wide ? 'max-w-2xl' : 'max-w-md')}>
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <button onClick={onClose} className="-m-1 rounded-lg p-1 text-muted hover:text-ink" aria-label="Close"><X className="h-5 w-5" /></button>
+        style={{ animation: 'sheet-up .32s cubic-bezier(.2,.8,.2,1)' }}
+        className={cls('relative flex max-h-[calc(100dvh-var(--safe-top)-12px)] w-full flex-col overflow-hidden rounded-t-[28px] border border-line bg-surface shadow-lift',
+          'sm:max-h-[calc(100dvh-3rem)] sm:rounded-3xl', wide ? 'sm:max-w-2xl' : 'sm:max-w-md')}>
+        <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-line sm:hidden" />
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-line px-5 py-3 sm:px-6 sm:py-4">
+          <h3 className="min-w-0 truncate text-lg font-semibold">{title}</h3>
+          <button onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-raised text-muted transition hover:text-ink active:scale-90" aria-label="Close"><X className="h-[18px] w-[18px]" /></button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(20px+var(--safe-bottom))] pt-4 sm:px-6 sm:pb-6">{children}</div>
       </div>
     </div>,
     document.body,

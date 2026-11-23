@@ -74,12 +74,32 @@ function Footer({ user, logout, dark, applyTheme, lang, setLang }) {
   )
 }
 
+// three lines that turn into an X
+function Burger({ open }) {
+  const line = 'absolute left-0 h-[2px] w-5 rounded-full bg-current transition-all duration-300 ease-[cubic-bezier(.32,.72,0,1)]'
+  return (
+    <span className="relative block h-4 w-5" aria-hidden>
+      <span className={cls(line, open ? 'top-[7px] rotate-45' : 'top-0')} />
+      <span className={cls(line, 'top-[7px]', open ? 'scale-x-0 opacity-0' : 'opacity-100')} />
+      <span className={cls(line, open ? 'top-[7px] -rotate-45' : 'top-[14px]')} />
+    </span>
+  )
+}
+
 export default function AdminApp() {
   const { user, ready, logout, dark, applyTheme } = useApp()
   const [open, setOpen] = useState(false)
   const loc = useLocation()
   const [lang, setLang] = useAdminLanguage()
   useEffect(() => { setOpen(false); window.scrollTo(0, 0) }, [loc.pathname])
+  useEffect(() => {
+    if (!open) return undefined
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const k = (e) => e.key === 'Escape' && setOpen(false)
+    window.addEventListener('keydown', k)
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', k) }
+  }, [open])
   if (!ready) return <Loading />
   if (!user) return <Navigate to="/login?next=/admin" replace />
   if (user.role === 'customer') return <div className="page pt-16 text-center"><p className="text-lg font-semibold">Admin access required</p><Link to="/" className="btn-ghost mt-4">Back to TicketNest</Link></div>
@@ -96,21 +116,22 @@ export default function AdminApp() {
 
       {/* phone / tablet top bar */}
       <header className="sticky top-0 z-40 flex h-[calc(56px+var(--safe-top))] items-center gap-3 border-b border-line bg-surface/90 px-4 pt-[var(--safe-top)] backdrop-blur-xl lg:hidden">
-        <button onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-xl border border-line" aria-label="Menu"><Menu className="h-5 w-5" /></button>
+        <button onClick={() => setOpen((o) => !o)} className="grid h-10 w-10 place-items-center rounded-xl border border-line transition active:scale-90" aria-label="Menu" aria-expanded={open}><Burger open={open} /></button>
         <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Admin</p><p className="-mt-0.5 truncate font-semibold">{current?.[1] || 'TicketNest'}</p></div>
         <LangToggle lang={lang} setLang={setLang} />
         <Avatar user={user} size={34} />
       </header>
-      {open && (
-        <div className="fixed inset-0 z-50 lg:hidden" onClick={() => setOpen(false)}>
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div className="absolute inset-y-0 left-0 flex w-[82%] max-w-[300px] flex-col bg-surface pb-[var(--safe-bottom)] pt-[var(--safe-top)] shadow-lift" style={{ animation: 'drawer .28s cubic-bezier(.2,.7,.2,1)' }} onClick={(e) => e.stopPropagation()}>
-            <div className="flex h-14 items-center justify-between px-5"><Logo /><button onClick={() => setOpen(false)} aria-label="Close"><X className="h-5 w-5" /></button></div>
-            <div className="flex-1 overflow-y-auto py-2"><NavList admin={admin} onPick={() => setOpen(false)} /></div>
-            <Footer user={user} logout={logout} dark={dark} applyTheme={applyTheme} lang={lang} setLang={setLang} />
-          </div>
+      {/* phone menu: always mounted so it can slide out as smoothly as it slides in */}
+      <div className={cls('fixed inset-0 z-50 lg:hidden', open ? 'pointer-events-auto' : 'pointer-events-none')} aria-hidden={!open} inert={open ? undefined : ''}>
+        <div className={cls('absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-out', open ? 'opacity-100' : 'opacity-0')} onClick={() => setOpen(false)} />
+        <div className={cls('absolute inset-y-0 left-0 flex w-[82%] max-w-[300px] flex-col bg-surface pb-[var(--safe-bottom)] pt-[var(--safe-top)] shadow-lift will-change-transform',
+          'transition-transform duration-[420ms] ease-[cubic-bezier(.32,.72,0,1)]', open ? 'translate-x-0' : '-translate-x-full')}>
+          <div className="flex h-14 items-center justify-between px-5"><Logo />
+            <button onClick={() => setOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-raised transition active:scale-90" aria-label="Close"><X className="h-[18px] w-[18px]" /></button></div>
+          <div className="flex-1 overflow-y-auto overscroll-contain py-2"><NavList admin={admin} onPick={() => setOpen(false)} /></div>
+          <Footer user={user} logout={logout} dark={dark} applyTheme={applyTheme} lang={lang} setLang={setLang} />
         </div>
-      )}
+      </div>
 
       <main className="min-w-0 p-4 pb-[calc(16px+var(--safe-bottom))] sm:p-6 lg:p-8">
         <Suspense fallback={<Loading />}>

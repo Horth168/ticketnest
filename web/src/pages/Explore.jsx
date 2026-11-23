@@ -136,7 +136,7 @@ function FilterSheet({ children, onClose, onReset, count, total }) {
   return (
     <div className="fixed inset-0 z-[95] lg:hidden" role="dialog" aria-modal="true" aria-label={t('Filters')}>
       <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" style={{ animation: 'fade-in .2s ease' }} onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col rounded-t-[28px] border-t border-line bg-bg shadow-lift"
+      <div className="absolute inset-x-0 bottom-0 flex max-h-[min(88dvh,calc(100dvh-var(--safe-top)-12px))] flex-col rounded-t-[28px] border-t border-line bg-bg shadow-lift"
         style={{ animation: 'sheet-up .3s cubic-bezier(.2,.8,.2,1)' }}>
         <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-line" />
         <div className="flex shrink-0 items-center justify-between px-5 pb-3 pt-3">

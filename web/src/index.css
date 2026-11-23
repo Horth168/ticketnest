@@ -162,3 +162,9 @@ h1, h2, h3, .font-display { font-family: theme('fontFamily.display'); letter-spa
 /* admin in Khmer: Khmer font, slightly taller lines */
 html[data-admin-lang='km'] body { font-family: 'Inter Variable', 'Kantumruy Pro Variable', 'Kantumruy Pro', system-ui, sans-serif; }
 html[data-admin-lang='km'] h1, html[data-admin-lang='km'] h2 { font-family: 'Inter Variable', 'Kantumruy Pro Variable', system-ui, sans-serif; letter-spacing: 0; }
+
+/* iPhone date/time fields: Safari gives them their own width and centred text, so they stuck out of forms */
+input[type='date'].input, input[type='datetime-local'].input, input[type='time'].input {
+  -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; min-height: 46px; text-align: left; }
+input[type='date']::-webkit-date-and-time-value, input[type='datetime-local']::-webkit-date-and-time-value,
+input[type='time']::-webkit-date-and-time-value { text-align: left; margin: 0; }
