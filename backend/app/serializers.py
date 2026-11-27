@@ -68,6 +68,11 @@ def listing_admin(db: Session, l: TicketListing) -> dict:
     d["seller"] = ({"id": l.seller.id, "name": l.seller.full_name, "email": l.seller.email,
                     "telegram_username": l.seller.telegram_username, "phone": l.seller.phone} if l.seller else None)
     d["reviewed_at"] = iso(l.reviewed_at)
+    if l.seller_id is None:
+        # TicketNest's own stock: no proof needed, show which admin added it (they are recorded as the reviewer)
+        by = db.get(User, l.reviewed_by_id) if l.reviewed_by_id else None
+        d["added_by"] = {"name": by.full_name, "email": by.email, "role": by.role.value} if by else None
+        d["added_at"] = iso(l.created_at)
     return d
 
 

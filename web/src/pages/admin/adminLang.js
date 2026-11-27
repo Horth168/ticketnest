@@ -46,6 +46,7 @@ export const KM = {
   "Private — only admins and the seller can open these. Compare the receipt's price with the original price below.": 'ឯកជន — មានតែអ្នកគ្រប់គ្រង និងអ្នកលក់ទេដែលអាចបើកបាន។ ប្រៀបធៀបតម្លៃលើបង្កាន់ដៃជាមួយតម្លៃដើមខាងក្រោម។',
   'Reason (shown to the seller)': 'មូលហេតុ (បង្ហាញដល់អ្នកលក់)', 'Seller': 'អ្នកលក់', 'Buyer': 'អ្នកទិញ', 'Category': 'ប្រភេទ', 'Concert': 'ការប្រគុំតន្ត្រី',
   'Seller price': 'តម្លៃអ្នកលក់', 'Seller price (USD)': 'តម្លៃអ្នកលក់ (USD)', 'Seller listing price': 'តម្លៃដាក់លក់របស់អ្នកលក់', 'Buyer pays': 'អ្នកទិញបង់',
+  'Listing price': 'តម្លៃដាក់លក់', 'TicketNest receives': 'TicketNest ទទួលបាន', "TicketNest's own tickets": 'សំបុត្ររបស់ TicketNest ផ្ទាល់', 'Added by': 'បន្ថែមដោយ',
   'Seller receives': 'អ្នកលក់ទទួលបាន', 'Original (face) price': 'តម្លៃដើម', 'Original price (USD)': 'តម្លៃដើម (USD)', 'Price (USD)': 'តម្លៃ (USD)',
   'Face value': 'តម្លៃដើម', 'TicketNest stock': 'សំបុត្រ TicketNest', "TicketNest's own stock (no seller payout).": 'សំបុត្ររបស់ TicketNest ផ្ទាល់ (គ្មានការទូទាត់ឱ្យអ្នកលក់)។',
   'Goes on sale immediately. The buyer markup applies; no seller commission.': 'ដាក់លក់ភ្លាមៗ។ គិតថ្លៃបន្ថែមលើអ្នកទិញ គ្មានកម្រៃជើងសារពីអ្នកលក់។',

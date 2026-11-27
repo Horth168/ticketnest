@@ -1,4 +1,4 @@
-import { Check, ChevronRight, ExternalLink, Maximize2, Plus, Search, Ticket, User as UserIcon, X } from 'lucide-react'
+import { Check, ChevronRight, ExternalLink, Maximize2, Plus, Search, Ticket, User as UserIcon, UserCog, X } from 'lucide-react'
 import { viewFile } from '../../components/FileViewer'
 import { promptDialog } from '../../components/Dialog'
 import { useCallback, useEffect, useState } from 'react'
@@ -102,7 +102,16 @@ function ListingDetail() {
       <H title={`Listing #${l.id}`} sub={`${l.concert.title} · ${dateLong(l.concert.starts_at)}`}><ListingBadge status={l.status} /></H>
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6">
-          <div className="card p-5">
+          {!l.seller ? (
+            <div className="card flex items-start gap-3 p-5">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent/10 text-accent"><UserCog className="h-5 w-5" /></span>
+              <div className="min-w-0 text-sm">
+                <p className="font-semibold">TicketNest's own tickets</p>
+                <p className="mt-0.5 text-muted">Added by <b className="text-ink">{l.added_by?.name || 'an admin'}</b>{l.added_by?.role ? ` (${l.added_by.role})` : ''}{l.added_at ? ` on ${dateTime(l.added_at)}` : ''}. No ticket proof or receipt is needed for tickets TicketNest adds itself.</p>
+                {l.added_by?.email && <p className="mt-1 truncate text-[12px] text-muted">{l.added_by.email}</p>}
+              </div>
+            </div>
+          ) : <div className="card p-5">
             <p className="text-[12px] text-muted">Private — only admins and the seller can open these. Compare the receipt's price with the original price below.</p>
             {[['proof', 'Ticket proof'], ['receipt', 'Purchase receipt']].map(([kind, title]) => {
               const files = l.files.filter((f) => (f.kind || 'proof') === kind)
@@ -114,13 +123,13 @@ function ListingDetail() {
                 </div>
               )
             })}
-          </div>
+          </div>}
           <div className="card p-5">
             <p className="mb-2 font-semibold">Details</p>
             <Row k="Category" v={l.category} /><Row k="Seat" v={l.seat_info || '—'} /><Row k="Type" v={TICKET_TYPES[l.ticket_type]} />
             <Row k="Quantity" v={`${l.quantity} (sold ${l.quantity_sold}, held ${l.quantity_reserved}, available ${l.available})`} />
-            <Row k="Original (face) price" v={usd2(l.original_price_cents)} /><Row k="Seller listing price" v={usd2(l.price_cents)} />
-            <Row k="Buyer pays" v={usd2(l.buyer_price_cents)} /><Row k="Seller receives" v={usd2(l.net_per_ticket_cents)} />
+            <Row k="Original (face) price" v={usd2(l.original_price_cents)} /><Row k={l.seller ? 'Seller listing price' : 'Listing price'} v={usd2(l.price_cents)} />
+            <Row k="Buyer pays" v={usd2(l.buyer_price_cents)} />{l.seller ? <Row k="Seller receives" v={usd2(l.net_per_ticket_cents)} /> : <Row k="TicketNest receives" v={usd2(l.buyer_price_cents)} />}
             {l.notes && <p className="mt-3 whitespace-pre-line rounded-xl bg-raised p-3 text-sm">{l.notes}</p>}
             {l.rejection_reason && <p className="mt-3 rounded-xl bg-bad/5 p-3 text-sm text-bad">Rejected: {l.rejection_reason}</p>}
           </div>
