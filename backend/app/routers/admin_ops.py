@@ -702,3 +702,36 @@ def audit_log(db: Session = Depends(get_db), _: User = Depends(require_admin), a
 def telegram_log(db: Session = Depends(get_db), _: User = Depends(require_admin)):
     return [{"id": t.id, "chat_id": t.chat_id, "kind": t.kind, "status": t.status, "error": t.error, "text": t.text,
              "at": iso(t.created_at)} for t in db.query(TelegramNotification).order_by(TelegramNotification.id.desc()).limit(200)]
+
+
+# ---------------------------------------------------------------- launch cleanup (one-time, before going public)
+class LaunchResetIn(BaseModel):
+    keep_concert_id: int
+    confirm: str
+
+
+@router.get("/launch-reset")
+def launch_reset_preview(keep_concert_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.services import launch_reset
+    try:
+        return launch_reset.preview(db, keep_concert_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.post("/launch-reset")
+def launch_reset_run(body: LaunchResetIn, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    from app.services import backup, launch_reset
+    if body.confirm.strip().upper() != launch_reset.CONFIRM_WORD:
+        raise HTTPException(422, f'Type "{launch_reset.CONFIRM_WORD}" to confirm.')
+    if not db.get(Concert, body.keep_concert_id):
+        raise HTTPException(404, "That concert does not exist.")
+    try:
+        saved = backup.run(db)          # a full copy first, so the cleanup can be undone
+    except Exception as e:  # noqa: BLE001 - never delete without a backup
+        raise HTTPException(503, f"Backup failed, nothing was deleted: {e}")
+    result = launch_reset.run(db, body.keep_concert_id)
+    audit.log(db, "launch.reset", "concert", body.keep_concert_id, actor=user,
+              data={"backup": saved["name"], "total": result["total"]})
+    db.commit()
+    return {**result, "backup": saved["name"]}

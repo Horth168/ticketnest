@@ -624,6 +624,63 @@ function BackupsPage() {
         </div>
       )}
       <p className="mt-4 text-[12px] leading-relaxed text-muted">Backups contain customer data: keep downloaded files private. To restore one into a new empty database, run <code className="rounded bg-raised px-1">alembic upgrade head</code> and then <code className="rounded bg-raised px-1">python scripts/restore_backup.py FILE</code> in the backend folder.</p>
+      <LaunchCleanup onDone={load} />
+    </div>
+  )
+}
+
+// One-time cleanup before going public: keeps admin/staff accounts, artists, settings and ONE concert;
+// deletes every other concert, all test orders, payments, wallets, withdrawals, listings, reviews and
+// customer accounts. A full backup is saved first.
+function LaunchCleanup({ onDone }) {
+  const { toast, user } = useApp()
+  const [concerts, setConcerts] = useState([])
+  const [keep, setKeep] = useState('')
+  const [plan, setPlan] = useState(null)
+  const [word, setWord] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+  useEffect(() => { if (user?.role === 'admin') api('/api/admin/concerts').then(setConcerts).catch(() => {}) }, [user])
+  useEffect(() => {
+    setPlan(null); setWord('')
+    if (keep) api(`/api/admin/launch-reset?keep_concert_id=${keep}`).then(setPlan).catch((e) => toast(e.message, 'error'))
+  }, [keep, toast])
+  if (user?.role !== 'admin') return null
+  const run = async () => {
+    const ok = await confirmDialog({ title: 'Delete all test data?', message: `${plan.total} records will be permanently deleted. A backup is saved first.`, confirmText: 'Delete', danger: true })
+    if (!ok) return
+    setBusy(true)
+    try {
+      const r = await api('/api/admin/launch-reset', { method: 'POST', body: { keep_concert_id: Number(keep), confirm: word } })
+      setResult(r); setPlan(null); setKeep(''); toast(`Deleted ${r.total} records`); onDone?.()
+      api('/api/admin/concerts').then(setConcerts).catch(() => {})
+    } catch (e) { toast(e.message, 'error') } finally { setBusy(false) }
+  }
+  return (
+    <div className="card mt-8 border-bad/30 p-5">
+      <p className="flex items-center gap-2 font-semibold text-bad"><Trash2 className="h-4 w-4" />Launch cleanup</p>
+      <p className="mt-1 text-[13px] leading-relaxed text-muted">Use once before going public. Keeps admin and staff accounts, artists, settings and the one concert you choose. Deletes every other concert and all test orders, payments, wallets, withdrawals, listings, reviews and customer accounts. A full backup is saved first.</p>
+      <div className="mt-4" />
+      <Field label="Concert to keep">
+        <select className="input" value={keep} onChange={(e) => setKeep(e.target.value)}>
+          <option value="">Choose…</option>
+          {concerts.map((c) => <option key={c.id} value={c.id}>{c.title} · {c.city}</option>)}
+        </select>
+      </Field>
+      {keep && !plan && <Loading />}
+      {plan && (
+        <div className="mt-4 space-y-3 text-sm">
+          <p className="rounded-xl bg-good/10 p-3 text-[13px] text-good">Keeps <b>{plan.keep_concert.title}</b> ({plan.keep_concert.categories} categories) and {plan.kept_accounts.length} account{plan.kept_accounts.length === 1 ? '' : 's'}: {plan.kept_accounts.map((a) => `${a.name} (${a.role})`).join(', ')}.</p>
+          {plan.concerts_removed.length > 0 && <p className="text-[13px] text-muted">Concerts removed: {plan.concerts_removed.map((c) => c.title).join(', ')}</p>}
+          <div className="rounded-xl border border-line px-3 py-1">
+            {plan.delete.filter((r) => r.count).map((r) => <Row key={r.label} k={r.label} v={r.count} />)}
+            <Row k="Total to delete" v={plan.total} strong />
+          </div>
+          <Field label={`Type ${plan.confirm_word} to confirm`}><input className="input" value={word} onChange={(e) => setWord(e.target.value)} autoCapitalize="characters" autoComplete="off" /></Field>
+          <button className="btn-danger w-full" disabled={busy || !plan.total || word.trim().toUpperCase() !== plan.confirm_word} onClick={run}>{busy ? 'Backing up and deleting…' : `Delete ${plan.total} records`}</button>
+        </div>
+      )}
+      {result && <p className="mt-4 rounded-xl bg-good/10 p-3 text-[13px] text-good">Done: {result.total} records deleted. Backup saved first as {result.backup}.</p>}
     </div>
   )
 }
