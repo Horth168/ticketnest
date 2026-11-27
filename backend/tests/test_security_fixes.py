@@ -105,3 +105,14 @@ def test_upload_size_limits(client, setup, monkeypatch):
     r = client.post("/api/account/payout-qr", headers=setup["seller"], files={"file": ("qr.pdf", pdf, "application/pdf")})
     assert r.status_code in (400, 413)
     assert client.post("/api/account/payout-qr", headers=setup["seller"], files={"file": ("qr.png", png_bytes(), "image/png")}).status_code == 200
+
+
+def test_manual_listing_face_value_optional(client, setup):
+    c = setup["concert"]
+    base = {"concert_id": c["id"], "category_id": c["categories"][0]["id"], "price": "500", "quantity": 1}
+    r = client.post("/api/admin/listings", headers=setup["admin"], json={**base, "original_price": ""})
+    assert r.status_code == 201, r.text
+    assert r.json()["original_price_cents"] == 50000          # no face value given: falls back to the price
+    r = client.post("/api/admin/listings", headers=setup["admin"], json={**base, "original_price": "250"})
+    assert r.status_code == 201 and r.json()["original_price_cents"] == 25000
+    assert client.post("/api/admin/listings", headers=setup["admin"], json={**base, "price": "abc"}).status_code == 422

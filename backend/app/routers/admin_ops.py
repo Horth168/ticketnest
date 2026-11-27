@@ -200,7 +200,7 @@ class ManualListingIn(BaseModel):
     concert_id: int
     category_id: int
     price: str | float
-    original_price: str | float
+    original_price: str | float | None = None   # face value; optional
     quantity: int = Field(ge=1, le=500)
     seat_info: str = Field("", max_length=200)
     notes: str = Field("", max_length=2000)
@@ -213,8 +213,17 @@ def manual_listing(body: ManualListingIn, db: Session = Depends(get_db), user: U
     cat = db.get(TicketCategory, body.category_id)
     if not cat or cat.concert_id != body.concert_id:
         raise HTTPException(400, "Choose a category of this concert")
-    l = TicketListing(seller_id=None, concert_id=body.concert_id, category_id=cat.id, price_cents=to_cents(body.price),
-                      original_price_cents=to_cents(body.original_price), quantity=body.quantity,
+    try:
+        price_cents = to_cents(body.price)
+        face = str(body.original_price).strip() if body.original_price is not None else ""
+        # face value left empty: use the category's official price, or the selling price
+        original_cents = to_cents(face) if face else (cat.face_value_cents or price_cents)
+    except ValueError:
+        raise HTTPException(422, "Enter prices as numbers, for example 250 or 250.50")
+    if original_cents <= 0:
+        raise HTTPException(422, "Face value must be positive")
+    l = TicketListing(seller_id=None, concert_id=body.concert_id, category_id=cat.id, price_cents=price_cents,
+                      original_price_cents=original_cents, quantity=body.quantity,
                       seat_info=clean_text(body.seat_info, 200), notes=clean_text(body.notes, 2000),
                       ticket_type=TicketType(body.ticket_type), status=ListingStatus.available,
                       contact_name="TicketNest", reviewed_by_id=user.id, reviewed_at=utcnow())
