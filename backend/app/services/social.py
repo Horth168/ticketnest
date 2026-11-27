@@ -171,6 +171,27 @@ def link_provider(db: Session, user: User, provider: str, uid: str, display: str
         db.add(UserAuthProvider(user_id=user.id, provider=provider, provider_uid=uid, display=display[:255]))
 
 
+def claim_unverified_account(db: Session, user: User) -> None:
+    """The real owner of an email has just proved it (Google sign-in or a reset link) on an account whose email
+    was never verified. Whoever set that account up may have planted someone else's email on it, so remove
+    every way back in and everything they could have set: password, sessions, other sign-in links (Telegram,
+    Google), the Telegram ID, and payout details (so earnings cannot go to a bank account they chose)."""
+    from app.models import RefreshToken
+    user.password_hash = ""
+    user.token_version += 1
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"revoked": True})
+    db.query(UserAuthProvider).filter(UserAuthProvider.user_id == user.id).delete()
+    if user.telegram_id:
+        db.query(TelegramUser).filter(TelegramUser.user_id == user.id).update({"user_id": None})
+    user.telegram_id = None
+    user.telegram_username = ""
+    user.payout_method = ""
+    user.payout_account_name = ""
+    user.payout_account_number = ""
+    user.payout_qr_key = ""
+    db.flush()
+
+
 def user_from_google(db: Session, info: dict) -> tuple[User, bool]:
     """(user, created)."""
     sub = str(info["sub"])
@@ -185,12 +206,8 @@ def user_from_google(db: Session, info: dict) -> tuple[User, bool]:
     if user:
         _usable(user)
         if not user.email_verified:
-            # Nobody had proved they own this address until now (Google just did). Protect against an
-            # account someone pre-registered with another person's email: drop its password and sessions.
-            from app.models import RefreshToken
-            user.password_hash = ""
-            user.token_version += 1
-            db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"revoked": True})
+            # Nobody had proved they own this address until now (Google just did).
+            claim_unverified_account(db, user)
         user.email_verified = True
     else:
         user = User(email=email, full_name=clean_text(info.get("name") or email.split("@")[0], 120),

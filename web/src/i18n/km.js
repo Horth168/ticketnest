@@ -588,4 +588,5 @@ export default {
   'Open in new tab': 'បើកក្នុងផ្ទាំងថ្មី',
   'Save to Photos': 'រក្សាទុកក្នុងរូបថត',
   'Open / Save': 'បើក / រក្សាទុក',
+  '{name} is larger than {mb} MB. Please choose a smaller file.': '{name} ធំជាង {mb} MB។ សូមជ្រើសរើសឯកសារតូចជាងនេះ។',
 }

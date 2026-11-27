@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # --- Files ---
     STORAGE_PROVIDER: str = "local"   # local | r2
     LOCAL_STORAGE_DIR: str = str(BASE_DIR / "storage")
-    MAX_UPLOAD_MB: int = 8
+    MAX_UPLOAD_MB: int = 5          # per file; photos are also shrunk in the browser before upload
     R2_ACCOUNT_ID: str = ""
     R2_ACCESS_KEY_ID: str = ""
     R2_SECRET_ACCESS_KEY: str = ""

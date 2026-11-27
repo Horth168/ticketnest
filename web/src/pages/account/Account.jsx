@@ -8,6 +8,7 @@ import { Avatar, Empty, ErrorNote, Field, ListingBadge, Loading, Modal, OrderBad
 import { useApp, useLink } from '../../context/App'
 import { LANGS, useT } from '../../i18n'
 import { api } from '../../lib/api'
+import { prepareFiles } from '../../lib/files'
 import { cls, dateLong, dateShort, dateTime, usd2 } from '../../lib/format'
 import { inTelegram } from '../../lib/telegram'
 import { openFile } from '../../lib/api'
@@ -65,8 +66,11 @@ export function Profile() {
     setBusy(key); setError(null)
     try { setUser(await api('/api/account/me', { method: 'PATCH', body })); toast(t('Saved')) } catch (err) { setError(err); toast(err.message, 'error') } finally { setBusy('') }
   }
-  const upload = async (path, file, key) => {
-    if (!file) return
+  const upload = async (path, original, key) => {
+    if (!original) return
+    const { files, errors } = await prepareFiles([original], t)
+    if (errors.length) return toast(errors[0], 'error')
+    const file = files[0]
     setBusy(key)
     const fd = new FormData(); fd.append('file', file)
     try { setUser(await api(path, { method: 'POST', form: fd })); toast(t('Saved')) } catch (err) { toast(err.message, 'error') } finally { setBusy('') }

@@ -662,6 +662,13 @@ def test_telegram(_: User = Depends(require_admin), db: Session = Depends(get_db
 
 
 # ---------------------------------------------------------------- reports
+def _cell(v):
+    """Text a customer typed could start with = + - @ and be run as a formula when the CSV is opened in
+    Excel/Sheets. Prefix those with an apostrophe so spreadsheets show them as plain text."""
+    v = "" if v is None else str(v)
+    return "'" + v if v[:1] in ("=", "+", "-", "@", chr(9), chr(13)) else v
+
+
 @router.get("/reports/orders.csv")
 def export_orders(date_from: datetime | None = None, date_to: datetime | None = None, db: Session = Depends(get_db),
                   _: User = Depends(require_admin)):
@@ -679,8 +686,8 @@ def export_orders(date_from: datetime | None = None, date_to: datetime | None = 
         it = o.items[0]
         pay = next((p for p in reversed(o.payments) if p.reference), None)
         cents = lambda c: f"{c / 100:.2f}"  # noqa: E731
-        w.writerow([o.order_number, iso(o.created_at), o.status.value, o.contact_name, it.concert_title,
-                    it.category_name, it.quantity, cents(o.subtotal_cents), cents(o.markup_cents), cents(o.total_cents),
+        w.writerow([o.order_number, iso(o.created_at), o.status.value, _cell(o.contact_name), _cell(it.concert_title),
+                    _cell(it.category_name), it.quantity, cents(o.subtotal_cents), cents(o.markup_cents), cents(o.total_cents),
                     cents(o.commission_cents), cents(o.seller_payout_cents), cents(o.markup_cents + o.commission_cents),
                     o.invoice.invoice_number if o.invoice else "", pay.reference if pay else "", iso(o.paid_at),
                     iso(o.delivered_at)])

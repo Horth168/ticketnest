@@ -588,4 +588,5 @@ export default {
   'Open in new tab': '在新标签页打开',
   'Save to Photos': '保存到相册',
   'Open / Save': '打开 / 保存',
+  '{name} is larger than {mb} MB. Please choose a smaller file.': '{name} 超过 {mb} MB，请选择较小的文件。',
 }

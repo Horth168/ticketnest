@@ -6,6 +6,7 @@ import { Empty, ErrorNote, Field, Loading, Poster, Row, Spinner } from '../compo
 import { useApp, useLink } from '../context/App'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
+import { prepareFiles } from '../lib/files'
 import { cls, dateLong, pct, TICKET_TYPES, usd2 } from '../lib/format'
 import { haptic } from '../lib/telegram'
 import { useMainButton } from '../tg/hooks'
@@ -98,7 +99,11 @@ export default function Sell() {
 
   const shown = useMemo(() => (concerts || []).filter((c) => `${c.title} ${c.artist.name} ${c.city}`.toLowerCase().includes(q.toLowerCase())), [concerts, q])
   const cat = concert?.categories.find((c) => c.id === f.category_id)
-  const addFiles = (key) => (list) => set(key, [...f[key], ...list].slice(0, MAX))
+  const addFiles = (key) => async (list) => {
+    const { files, errors } = await prepareFiles(list, t)
+    errors.forEach((m) => toast(m, 'error'))
+    if (files.length) setF((cur) => ({ ...cur, [key]: [...cur[key], ...files].slice(0, MAX) }))
+  }
   const rmFile = (key) => (i) => set(key, f[key].filter((_, j) => j !== i))
 
   return (
@@ -202,7 +207,7 @@ export default function Sell() {
                 <p className="mb-2 text-[13px] font-medium text-muted">{t('Your bank KHQR (recommended)')} {user?.payout?.has_qr && !f.payout_qr && <span className="text-good">· {t('Already on your profile')}</span>}</p>
                 <FileDrop icon={QrCode} title={f.payout_qr ? t('QR added') : t('Upload your payout QR')} hint={t('So we can pay you in one scan. Only TicketNest admins can see it.')}
                   files={f.payout_qr ? [f.payout_qr] : []} accept="image/jpeg,image/png,image/webp" multiple={false}
-                  onAdd={(l) => l[0] && set('payout_qr', l[0])} onRemove={() => set('payout_qr', null)} />
+                  onAdd={async (l) => { const { files, errors } = await prepareFiles(l.slice(0, 1), t); errors.forEach((m) => toast(m, 'error')); if (files[0]) set('payout_qr', files[0]) }} onRemove={() => set('payout_qr', null)} />
               </div>
               <p className="text-[12px] text-muted">{t('Your payout details are only visible to you and TicketNest admins.')}</p>
             </div>

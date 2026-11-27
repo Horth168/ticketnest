@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { useApp, useLink } from '../context/App'
 import { useT } from '../i18n'
 import { api } from '../lib/api'
+import { prepareFiles } from '../lib/files'
 import { dateTime } from '../lib/format'
 import { haptic } from '../lib/telegram'
 import { Modal } from './ui'
@@ -95,7 +96,11 @@ function ReportModal({ o, onClose, onDone }) {
   const [photos, setPhotos] = useState([])
   const [busy, setBusy] = useState(false)
   const needPhoto = NEEDS_PHOTO.includes(reason)
-  const addPhotos = (list) => setPhotos((p) => [...p, ...Array.from(list || [])].slice(0, 3))
+  const addPhotos = async (list) => {
+    const { files, errors } = await prepareFiles(list, t)
+    errors.forEach((m) => toast(m, 'error'))
+    setPhotos((p) => [...p, ...files].slice(0, 3))
+  }
   const submit = async () => {
     setBusy(true)
     try {

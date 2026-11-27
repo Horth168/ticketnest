@@ -57,12 +57,12 @@ def _clean_image(data: bytes, kind: str) -> bytes:
         img = Image.open(io.BytesIO(data))
         if img.width * img.height > 40_000_000:
             raise HTTPException(400, "Image is too large")
-        img.thumbnail((2400, 2400))
+        img.thumbnail((2000, 2000))   # plenty to read a ticket or receipt, and keeps storage small
         out = io.BytesIO()
         fmt = {"image/jpeg": "JPEG", "image/png": "PNG", "image/webp": "WEBP"}[kind]
         if fmt == "JPEG" and img.mode not in ("RGB", "L"):
             img = img.convert("RGB")
-        img.save(out, fmt, quality=88)
+        img.save(out, fmt, quality=85)
         return out.getvalue()
     except (UnidentifiedImageError, OSError, SyntaxError) as e:
         raise HTTPException(400, "This image could not be read") from e

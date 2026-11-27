@@ -106,6 +106,9 @@ def reset_password(request: Request, body: ResetIn, db: Session = Depends(get_db
     user = db.get(User, row.user_id)
     if not user or not user.is_active:
         raise HTTPException(400, "This reset link is invalid or has expired. Request a new one.")
+    if not user.email_verified:
+        # first proof of this inbox: clear anything an earlier, unproven owner of the account set up
+        social.claim_unverified_account(db, user)
     user.password_hash = hash_password(body.password)
     user.email_verified = True   # they proved they can read this inbox
     user.token_version += 1      # sign out every device

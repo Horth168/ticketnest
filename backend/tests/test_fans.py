@@ -118,7 +118,7 @@ def test_error_alerts_are_rate_limited(monkeypatch):
     sent = []
     monkeypatch.setattr(alerts, "_send", lambda text: sent.append(text))
     monkeypatch.setattr(alerts.threading, "Thread", lambda target, args, daemon: type("T", (), {"start": lambda self: target(*args)})())
-    alerts._seen.clear(); alerts._sent.clear()
+    alerts._seen.clear(); alerts._sent.clear(); alerts._sent_web.clear()
     assert alerts.client_error("TypeError: x is undefined", "/concerts/a")
     assert not alerts.client_error("TypeError: x is undefined", "/concerts/b")   # same error within 30 min
     try:

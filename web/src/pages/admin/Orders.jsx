@@ -6,6 +6,7 @@ import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 're
 import { Badge, Empty, ErrorNote, Field, Loading, Modal, OrderBadge, Row } from '../../components/ui'
 import { useApp } from '../../context/App'
 import { api, openFile } from '../../lib/api'
+import { prepareFiles } from '../../lib/files'
 import { cls, dateLong, dateTime, usd2 } from '../../lib/format'
 import { H, Tabs } from './AdminApp'
 
@@ -252,6 +253,7 @@ function NoteBox({ o, onSave }) {
 }
 
 function DeliverModal({ open, onClose, onSubmit }) {
+  const { toast } = useApp()
   const [method, setMethod] = useState('telegram')
   const [ref, setRef] = useState('')
   const [file, setFile] = useState(null)
@@ -261,7 +263,7 @@ function DeliverModal({ open, onClose, onSubmit }) {
         <Field label="Delivery method"><select className="input" value={method} onChange={(e) => setMethod(e.target.value)}><option value="telegram">Telegram</option><option value="app_transfer">Ticketing app transfer</option><option value="email">Email</option><option value="in_person">In person</option></select></Field>
         <Field label="Reference / notes"><textarea className="input min-h-[80px]" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. Sent PDF e-ticket to @buyer at 14:20" /></Field>
         <p className="rounded-xl bg-accent/5 p-3 text-[12px] leading-relaxed text-muted"><b className="text-ink">Protect yourself and the seller:</b> attach a screenshot of the transfer (it shows the buyer's account and the time) or the ticket file. If the buyer later claims they never got it, this is your proof.</p>
-        <Field label="Attach transfer screenshot or ticket file" hint="Strongly recommended. The buyer can download it from their order"><input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files[0])} className="text-sm" /></Field>
+        <Field label="Attach transfer screenshot or ticket file" hint="Strongly recommended. The buyer can download it from their order"><input type="file" accept="image/*,application/pdf" onChange={async (e) => { const { files, errors } = await prepareFiles([e.target.files[0]].filter(Boolean), (s, v) => s.replace('{name}', v.name).replace('{mb}', v.mb)); if (errors.length) { toast(errors[0], 'error'); e.target.value = ''; setFile(null) } else setFile(files[0] || null) }} className="text-sm" /></Field>
         <button className="btn-accent w-full" onClick={() => { const fd = new FormData(); fd.append('method', method); fd.append('reference', ref); if (file) fd.append('file', file); onSubmit(fd) }}>Mark delivered</button>
       </div>
     </Modal>

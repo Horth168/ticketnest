@@ -14,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.bodylimit import TOO_LARGE, BodyLimitMiddleware
 from app.config import settings
 from app.database import SessionLocal, engine
 from app.limiter import limiter
@@ -29,6 +30,8 @@ app = FastAPI(title="TicketNest API", version="1.0.0",
               docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")
 app.state.limiter = limiter
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+# counts the bytes actually received (chunked uploads too), not just the Content-Length header
+app.add_middleware(BodyLimitMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
                    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
                    allow_headers=["Authorization", "Content-Type", "X-Human-Token"], expose_headers=["Content-Disposition"],
@@ -39,7 +42,7 @@ app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_cr
 async def security_headers(request: Request, call_next):
     size = request.headers.get("content-length")
     if size and size.isdigit() and int(size) > settings.MAX_REQUEST_MB * 1024 * 1024:
-        return JSONResponse({"detail": "Request is too large"}, status_code=413)
+        return JSONResponse({"detail": TOO_LARGE}, status_code=413)
     response = await call_next(request)
     if request.method in ("POST", "PUT", "PATCH", "DELETE") and response.status_code < 400:
         from app import cache   # anything changed (admin edit, approval, order, listing): drop cached public pages
